@@ -12,8 +12,9 @@
         return `<button class="chip ${S().filterName === k ? 'active' : ''}" data-filter="${k}"><span class="demo" style="background:${grad}"></span>${f.name}</button>`;
       }).join('');
       return `<h3>🎨 滤镜</h3><div class="chip-grid">${chips}</div>
+        ${U.sliderRow('filterIntensity', '强度', 10, 100, NX.core.state.filterIntensity)}
         <button class="btn block" id="filterApply">✅ 应用滤镜</button>
-        <p class="hint">点击滤镜实时预览，"应用滤镜"后进入下一段编辑。</p>`;
+        <p class="hint">点击滤镜实时预览，可调强度；"应用滤镜"后进入下一段编辑。</p>`;
     },
     demoGradient(k) {
       const g = {
@@ -38,6 +39,8 @@
         C.render();
         U.$$('#panel [data-filter]').forEach(x => x.classList.toggle('active', x === b));
       }));
+      const deb = U.debounce(() => C.render(), 30);
+      U.bindSlider('filterIntensity', v => { S().filterIntensity = v; deb(); });
       U.$('#filterApply').addEventListener('click', C.commitAdjustments);
     },
     leave() {},
