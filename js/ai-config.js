@@ -190,23 +190,35 @@
     return '连接成功' + (n ? `，可见 ${n} 个模型` : '');
   };
 
-  /* ---------- 设置页渲染（cc-switch 风格） ---------- */
-  let customCount = 0;
+  /* ---------- 设置页渲染（下拉框选厂商，单家配置） ---------- */
+  AI.selectedId = AI.selectedId || '';
 
   AI.renderSettings = function (el) {
-    const cards = [];
-    // 预置厂商
-    for (const preset of AI.PRESETS) cards.push(AI.providerCard(preset.id));
-    // 自定义厂商
-    for (const id in AI.cfg.providers) {
-      if (!AI.PRESETS.find(x => x.id === id)) cards.push(AI.providerCard(id));
+    // 默认选中：当前启用的厂商，否则第一家
+    if (!AI.selectedId || (!AI.PRESETS.find(x => x.id === AI.selectedId) && !AI.cfg.providers[AI.selectedId])) {
+      AI.selectedId = AI.cfg.activeId || AI.PRESETS[0].id;
     }
+    const ids = [...AI.PRESETS.map(x => x.id)];
+    for (const id in AI.cfg.providers) {
+      if (!AI.PRESETS.find(x => x.id === id)) ids.push(id);   // 自定义厂商追加在下拉尾部
+    }
+    const options = ids.map(id => {
+      const info = AI.providerInfo(id);
+      const mark = info.active ? ' ✓使用中' : (info.hasKey ? ' ·已填Key' : '');
+      return `<option value="${id}" ${id === AI.selectedId ? 'selected' : ''}>${info.emoji} ${U.esc(info.name)}${mark}</option>`;
+    }).join('');
+
     const a = AI.active();
     el.innerHTML = `
-      <div class="set-section-title">AI 服务厂商 · 选一个填 Key 即可，随时切换</div>
-      ${a && a.apiKey ? `<div class="panel-note ai" style="margin:0 0 10px">当前使用：${a.emoji} ${a.name}</div>` : `<div class="panel-note" style="margin:0 0 10px">⚠️ 还没有可用的 AI 服务：选一家厂商填入 Key 并「启用」。本地功能无需配置。</div>`}
-      ${cards.join('')}
-      <button class="btn block" id="pvAdd">➕ 添加自定义厂商（任何 OpenAI 兼容服务）</button>
+      <div class="set-section-title">AI 服务厂商 · 选一个填 Key 即可</div>
+      ${a && a.apiKey
+        ? `<div class="panel-note ai" style="margin:0 0 10px">当前使用：${a.emoji} ${U.esc(a.name)}</div>`
+        : `<div class="panel-note" style="margin:0 0 10px">⚠️ 还没有可用的 AI 服务：选厂商 → 填 Key → 保存 → 启用。本地功能无需配置。</div>`}
+      <div class="provider-card">
+        <div class="row"><label>厂商</label><select id="pvSelect">${options}</select></div>
+        <div id="pvForm"></div>
+        <button class="btn block" id="pvAdd">➕ 添加自定义厂商（任何 OpenAI 兼容服务）</button>
+      </div>
       <div class="set-section-title">高级 · 自定义提示词</div>
       <div class="provider-card">
         <div class="row"><label>消除</label><textarea id="aiPE">${U.esc(AI.cfg.prompts.erase)}</textarea></div>
@@ -215,42 +227,64 @@
         <div class="row"><label>修复</label><textarea id="aiPU">${U.esc(AI.cfg.prompts.upscale)}</textarea></div>
         <button class="btn block primary" id="aiSavePrompts">💾 保存提示词</button>
       </div>
-      <div class="set-about">🍋 柠檬秀秀 v2.0<br>Key 只保存在本机 localStorage · 图像接口兼容 OpenAI /images 规范<br>github.com/fourgrid/NingXiu</div>`;
+      <div class="set-about">🍋 柠檬秀秀 v2.1<br>Key 只保存在本机 localStorage · 图像接口兼容 OpenAI /images 规范<br>github.com/fourgrid/NingXiu</div>`;
     AI.bindSettings(el);
+    AI.renderProviderForm(el, AI.selectedId);
   };
 
-  AI.providerCard = function (id) {
+  AI.renderProviderForm = function (el, id) {
     const info = AI.providerInfo(id);
-    return `<div class="provider-card ${info.active ? 'active' : ''}" data-pid="${id}">
-      <div class="pv-head">
-        <span class="pv-emoji">${info.emoji}</span>
-        <div>
-          <span class="pv-name">${U.esc(info.name)}</span>
-          <span class="pv-tag ${info.hasKey ? '' : 'off'}">${info.hasKey ? '已填Key' : '未配置'}</span>
-          <div class="pv-url">${U.esc(info.baseUrl)}</div>
-        </div>
-        <button class="pv-toggle" data-act="use">${info.active ? '✓ 使用中' : '启用'}</button>
-        <span class="pv-caret">▼</span>
+    const form = U.$('#pvForm', el);
+    form.innerHTML = `
+      <div class="pv-url" style="margin:4px 0 8px">${U.esc(info.baseUrl)}${info.note ? `<br>💡 ${U.esc(info.note)}` : ''}</div>
+      ${info.isCustom ? `
+        <div class="row"><label>名称</label><input type="text" data-f="customName" value="${U.esc(info.name)}"></div>
+        <div class="row"><label>地址</label><input type="text" data-f="baseUrl" value="${U.esc(info.baseUrl)}" placeholder="https://.../v1"></div>` : ''}
+      <div class="row"><label>API Key</label><input type="password" data-f="apiKey" value="${U.esc(info.apiKey)}" placeholder="填这家厂商的 Key 就行"></div>
+      <div class="row"><label>编辑模型</label><input type="text" data-f="modelEdit" value="${U.esc(info.modelEdit)}"></div>
+      <div class="row"><label>绘画模型</label><input type="text" data-f="modelDraw" value="${U.esc(info.modelDraw)}"></div>
+      <div class="pv-actions">
+        <button class="btn" data-act="save">💾 保存</button>
+        <button class="btn" data-act="test">🔌 测试连接</button>
+        <button class="btn ${info.active ? 'primary' : 'ai'}" data-act="use">${info.active ? '✓ 使用中' : '启用这家'}</button>
+        ${info.isCustom ? '<button class="btn warn" data-act="del">🗑</button>' : ''}
       </div>
-      <div class="pv-body">
-        <div class="row"><label>API Key</label><input type="password" data-f="apiKey" value="${U.esc(info.apiKey)}" placeholder="填这家厂商的 Key 就行"></div>
-        ${info.isCustom ? `<div class="row"><label>名称</label><input type="text" data-f="customName" value="${U.esc(info.name)}">
-          <label style="width:auto">地址</label><input type="text" data-f="baseUrl" value="${U.esc(info.baseUrl)}" placeholder="https://.../v1"></div>` : ''}
-        <div class="row"><label>编辑模型</label><input type="text" data-f="modelEdit" value="${U.esc(info.modelEdit)}"></div>
-        <div class="row"><label>绘画模型</label><input type="text" data-f="modelDraw" value="${U.esc(info.modelDraw)}"></div>
-        ${info.note ? `<div class="pv-url">💡 ${U.esc(info.note)}</div>` : ''}
-        <div class="pv-actions">
-          <button class="btn" data-act="save">💾 保存</button>
-          <button class="btn" data-act="test">🔌 测试连接</button>
-          ${info.isCustom ? '<button class="btn warn" data-act="del">🗑 删除</button>' : ''}
-        </div>
-        <div class="ai-status" data-role="status" hidden></div>
-      </div>
-    </div>`;
+      <div class="ai-status" data-role="status" hidden></div>`;
+
+    const collect = () => {
+      const p = AI.cfg.providers[id] || {};
+      U.$$('input[data-f]', form).forEach(inp => { p[inp.dataset.f] = inp.value.trim(); });
+      AI.cfg.providers[id] = p;
+      return p;
+    };
+    form.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', async () => {
+      const act = btn.dataset.act;
+      const st = form.querySelector('[data-role="status"]');
+      if (act === 'save') {
+        collect(); AI.save();
+        U.toast('已保存 ✅');
+        AI.renderSettings(el);
+      } else if (act === 'use') {
+        collect();
+        if (!(AI.cfg.providers[id] || {}).apiKey) { U.toast('先填 Key 再启用'); return; }
+        AI.cfg.activeId = id; AI.save();
+        U.toast('已切换到：' + AI.providerInfo(id).name);
+        AI.renderSettings(el);
+      } else if (act === 'test') {
+        collect(); AI.save();
+        st.hidden = false; st.textContent = '⏳ 测试中…';
+        try { st.textContent = '✅ ' + await AI.testConnection(id); }
+        catch (e) { st.textContent = '❌ ' + U.fmtErr(e); }
+      } else if (act === 'del') {
+        delete AI.cfg.providers[id];
+        if (AI.cfg.activeId === id) AI.cfg.activeId = '';
+        if (AI.selectedId === id) AI.selectedId = '';
+        AI.save(); AI.renderSettings(el);
+      }
+    }));
   };
 
   AI.bindSettings = function (el) {
-    // 保存提示词
     U.$('#aiSavePrompts', el).addEventListener('click', () => {
       AI.cfg.prompts.erase = U.$('#aiPE', el).value;
       AI.cfg.prompts.expand = U.$('#aiPX', el).value;
@@ -259,55 +293,22 @@
       AI.save();
       U.toast('提示词已保存 ✅');
     });
-    // 添加自定义厂商
     U.$('#pvAdd', el).addEventListener('click', () => {
-      customCount++;
       const id = 'custom_' + Date.now();
       AI.cfg.providers[id] = { customName: '自定义服务', customEmoji: '⭐', baseUrl: '', apiKey: '', modelEdit: 'gpt-image-1', modelDraw: 'gpt-image-1' };
+      AI.selectedId = id;
       AI.save();
       AI.renderSettings(el);
     });
-    // 卡片操作
-    U.$$('.provider-card[data-pid]', el).forEach(card => {
-      const id = card.dataset.pid;
-      // 点头部展开/收起（手风琴：同时只展开一个）
-      card.querySelector('.pv-head').addEventListener('click', (e) => {
-        if (e.target.closest('[data-act]')) return;  // 点启用按钮不触发折叠
-        const wasOpen = card.classList.contains('expanded');
-        U.$$('.provider-card[data-pid]', el).forEach(c => c.classList.remove('expanded'));
-        if (!wasOpen) card.classList.add('expanded');
-      });
-      const collect = () => {
-        const p = AI.cfg.providers[id] || {};
-        U.$$('input[data-f]', card).forEach(inp => { p[inp.dataset.f] = inp.value.trim(); });
-        AI.cfg.providers[id] = p;
-        return p;
-      };
-      card.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', async () => {
-        const act = btn.dataset.act;
-        if (act === 'save') {
-          collect(); AI.save();
-          U.toast('已保存 ✅');
-          AI.renderSettings(el);
-        } else if (act === 'use') {
-          collect();
-          if (!p0().apiKey) { U.toast('先填 Key 再启用'); return; }
-          AI.cfg.activeId = id; AI.save();
-          U.toast('已切换到：' + AI.providerInfo(id).name);
-          AI.renderSettings(el);
-        } else if (act === 'test') {
-          collect(); AI.save();
-          const st = card.querySelector('[data-role="status"]');
-          st.hidden = false; st.textContent = '⏳ 测试中…';
-          try { st.textContent = '✅ ' + await AI.testConnection(id); }
-          catch (e) { st.textContent = '❌ ' + U.fmtErr(e); }
-        } else if (act === 'del') {
-          delete AI.cfg.providers[id];
-          if (AI.cfg.activeId === id) AI.cfg.activeId = '';
-          AI.save(); AI.renderSettings(el);
-        }
-        function p0() { return AI.cfg.providers[id] || {}; }
-      }));
+    U.$('#pvSelect', el).addEventListener('change', (e) => {
+      // 切换前先收集当前表单未保存的输入
+      const form = U.$('#pvForm', el);
+      const p = AI.cfg.providers[AI.selectedId] || {};
+      U.$$('input[data-f]', form).forEach(inp => { p[inp.dataset.f] = inp.value.trim(); });
+      AI.cfg.providers[AI.selectedId] = p;
+      AI.save();
+      AI.selectedId = e.target.value;
+      AI.renderSettings(el);
     });
   };
 })(window.NX.ai = {});
