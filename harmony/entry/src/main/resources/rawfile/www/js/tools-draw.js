@@ -414,7 +414,7 @@
   NX.tools.liquify = {
     mode: 'push', radius: 60, strength: 50, painting: false, last: null,
     panel() {
-      return `<h3>🌀 液化塑形 <span class="badge">VIP</span></h3>
+      return `<h3>🌀 液化塑形</h3>
         <div class="chip-grid">
           ${[['push','推移(瘦脸)'],['bulge','放大(大眼)'],['pinch','收缩(窄鼻)']].map(([v, n]) =>
             `<button class="chip ${this.mode === v ? 'active' : ''}" data-m="${v}">${n}</button>`).join('')}
@@ -458,7 +458,7 @@
     color: '#E23A5A', blend: 'multiply', size: 30, alpha: 40, painting: false, last: null,
     presets: [['#E23A5A','口红'],['#FF8FA3','腮红'],['#8B5A2B','染发-棕'],['#2B2B2B','染发-黑'],['#C0C0C0','染发-银'],['#5B3A8E','眼影']],
     panel() {
-      return `<h3>💄 美妆 <span class="badge">VIP</span></h3>
+      return `<h3>💄 美妆</h3>
         <div class="chip-grid" style="grid-template-columns:repeat(3,1fr)">
           ${this.presets.map(([c, n]) => `<button class="chip" data-c="${c}" style="border-bottom:4px solid ${c}">${n}</button>`).join('')}
         </div>

@@ -2,43 +2,56 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>柠檬秀秀 🍋 - 让每张照片都清新可人</title>
+<title>柠檬秀秀 🍋</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- 顶栏：极简 -->
 <header id="topbar">
   <div class="logo">🍋 柠檬秀秀</div>
   <div class="top-actions">
-    <button id="btnOpen" class="btn primary">📂 打开图片</button>
-    <button id="btnSave" class="btn primary" disabled>💾 保存图片</button>
-    <span class="sep"></span>
-    <button id="btnUndo" class="btn" disabled title="撤销 (⌘Z)">↩️ 撤销</button>
-    <button id="btnRedo" class="btn" disabled title="重做 (⇧⌘Z)">↪️ 重做</button>
-    <button id="btnReset" class="btn" disabled title="恢复原图">🔄 原图</button>
+    <button id="btnUndo" class="icon-btn" disabled title="撤销">↩️</button>
+    <button id="btnRedo" class="icon-btn" disabled title="重做">↪️</button>
+    <button id="btnReset" class="icon-btn" disabled title="恢复原图">🔄</button>
+    <button id="btnOpen" class="btn primary">打开图片</button>
+    <button id="btnSave" class="btn accent" disabled>保存</button>
+    <button id="btnSettings" class="icon-btn" title="设置">⚙️</button>
   </div>
 </header>
 
-<div id="main">
-  <nav id="sidebar"><!-- 由 main.js 生成 --></nav>
-
-  <section id="stage">
-    <div id="dropzone">
-      <div class="dz-inner">
-        <div class="dz-icon">🍋</div>
-        <p class="dz-title">把图片拖到这里，或点击选择图片</p>
-        <p class="dz-sub">支持 JPG / PNG / WebP · 全部处理在本机完成，照片不上传（AI 功能除外，需自行配置 API）</p>
-        <input type="file" id="fileInput" accept="image/*" hidden>
-      </div>
+<!-- 画布区 -->
+<section id="stage">
+  <div id="dropzone">
+    <div class="dz-inner">
+      <div class="dz-icon">🍋</div>
+      <p class="dz-title">把图片拖到这里，或点击选择图片</p>
+      <p class="dz-sub">本地处理，照片不上传 · AI 功能需自配 Key</p>
+      <input type="file" id="fileInput" accept="image/*" hidden>
     </div>
-    <canvas id="canvas" hidden></canvas>
-    <div id="toast" hidden></div>
-  </section>
+  </div>
+  <canvas id="canvas" hidden></canvas>
+  <div id="toast" hidden></div>
+</section>
 
-  <aside id="panel">
-    <div id="panelContent"><p class="hint">👈 打开图片后，从左侧选择功能</p></div>
-  </aside>
+<!-- 二级功能条（当前分类的子功能） -->
+<div id="subbar" hidden></div>
+
+<!-- 工具参数面板 -->
+<section id="panel" hidden><div id="panelContent"></div></section>
+
+<!-- 底部 Tab（美图式） -->
+<nav id="tabbar"></nav>
+
+<!-- 设置页（cc-switch 风格全屏页） -->
+<div id="settings" hidden>
+  <div class="set-header">
+    <button class="icon-btn" id="setBack">←</button>
+    <span>设置</span>
+    <span style="width:32px"></span>
+  </div>
+  <div id="settingsBody"></div>
 </div>
 
 <input type="file" id="collageFiles" accept="image/*" multiple hidden>

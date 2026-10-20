@@ -75,7 +75,7 @@
       const tabs = this.channels.map(([k, n]) =>
         `<button class="chip ${this.cur === k ? 'active' : ''}" data-ch="${k}">${n}</button>`).join('');
       const v = S().hsl[this.cur];
-      return `<h3>🌈 HSL 分色 <span class="badge">VIP</span></h3>
+      return `<h3>🌈 HSL 分色</h3>
         <div class="chip-grid" style="grid-template-columns:repeat(4,1fr)">${tabs}</div>
         ${U.sliderRow('hsl_h', '色相', -100, 100, v[0])}
         ${U.sliderRow('hsl_s', '饱和度', -100, 100, v[1])}

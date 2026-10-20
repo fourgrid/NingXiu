@@ -6,7 +6,7 @@
 
   function needConfig() {
     if (AI.configured()) return false;
-    U.toast('未配置 AI API，请先到「AI设置」填写');
+    U.toast('未配置 AI API，请到底部「我的 → AI 服务配置」选择厂商填 Key');
     return true;
   }
 
@@ -29,11 +29,11 @@
   NX.tools['ai-erase'] = {
     size: 40, mask: null, painting: false,
     panel() {
-      return `<h3>🤖 AI 消除 <span class="badge">VIP</span></h3>
+      return `<h3>🤖 AI 消除</h3>
         ${U.sliderRow('aeSize', '笔刷', 15, 120, this.size)}
         <button class="btn block ai" id="aeGo">✨ 开始 AI 消除</button>
         <button class="btn block" id="aeClear">🧽 重涂</button>
-        <p class="panel-note ai">涂抹要消除的物体（红色区域），AI 会移除并智能补全背景。配置见左侧「AI设置」。</p>`;
+        <p class="panel-note ai">涂抹要消除的物体（红色区域），AI 会移除并智能补全背景。配置见底部「我的」页。</p>`;
     },
     bind() {
       U.bindSlider('aeSize', v => this.size = v);
@@ -88,7 +88,7 @@
   NX.tools['ai-cutout'] = {
     bgColor: '#FFFFFF', bgImage: null, fgCache: null,
     panel() {
-      return `<h3>🤖 AI 抠图 <span class="badge">VIP</span></h3>
+      return `<h3>🤖 AI 抠图</h3>
         <button class="btn block ai" id="coGo">✨ AI 一键抠图</button>
         <h4>换背景</h4>
         <div class="swatch-row">
@@ -154,7 +154,7 @@
   NX.tools['ai-expand'] = {
     ratio: '16/9',
     panel() {
-      return `<h3>🤖 AI 扩图 <span class="badge">VIP</span></h3>
+      return `<h3>🤖 AI 扩图</h3>
         <div class="chip-grid" id="exRatios">
           ${[['16/9', '16:9 横屏'], ['9/16', '9:16 竖屏'], ['4/3', '4:3'], ['1', '1:1 方形'], ['2', '宽幅 2:1'], ['0.5', '竖幅 1:2']].map(([v, n], i) =>
             `<button class="chip ${i === 0 ? 'active' : ''}" data-r="${v}">${n}</button>`).join('')}
@@ -253,7 +253,7 @@
     style: '无',
     styles: ['无', '吉卜力动画风', '水彩插画', '油画质感', '赛博朋克', '国潮工笔', '3D 皮克斯', '像素艺术', '黑白线稿'],
     panel() {
-      return `<h3>🤖 AI 绘画 <span class="badge">VIP</span></h3>
+      return `<h3>🤖 AI 绘画</h3>
         <div class="row"><label>提示词</label><textarea id="drPrompt" placeholder="描述你想要的画面，如：一只柠檬味的猫在花园里"></textarea></div>
         <div class="chip-grid" id="drStyles">
           ${this.styles.map((s, i) => `<button class="chip ${i === 0 ? 'active' : ''}" data-s="${U.esc(s)}">${s}</button>`).join('')}
@@ -304,7 +304,7 @@
     style: '日系写真',
     styles: ['日系写真', '港风复古', '韩式证件照', '动漫头像', '油画肖像', '童话绘本', '水墨国风', '美式复古海报'],
     panel() {
-      return `<h3>🤖 AI 写真 <span class="badge">VIP</span></h3>
+      return `<h3>🤖 AI 写真</h3>
         <div class="chip-grid" id="ptStyles">
           ${this.styles.map((s, i) => `<button class="chip ${i === 0 ? 'active' : ''}" data-s="${U.esc(s)}">${s}</button>`).join('')}
         </div>
@@ -339,7 +339,7 @@
   /* ============ AI 变清晰 / 画质修复（VIP） ============ */
   NX.tools['ai-upscale'] = {
     panel() {
-      return `<h3>🤖 画质修复 <span class="badge">VIP</span></h3>
+      return `<h3>🤖 画质修复</h3>
         <button class="btn block ai" id="upAI">✨ AI 变清晰</button>
         <button class="btn block" id="upLocal">🔍 本地锐化增强(兜底)</button>
         <p class="panel-note ai">AI 修复：去噪点、去压缩痕迹、增强细节（送 API 处理）。本地兜底：锐化+对比度。</p>`;
