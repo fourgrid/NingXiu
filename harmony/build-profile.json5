@@ -1,9 +1,24 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "/Users/pinger/.ohos/config/default_harmony_LOIsL2EH1_3EvNKHNOYk4T6kRaJVIDpjEH2AGpu3f3s=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B141CF3D6B7F953C9B54523CA45D4EECACDE5AB5A05A0E7E6DB0D8EFFE545C45B18FDDCA230729C",
+          "profile": "/Users/pinger/.ohos/config/default_harmony_LOIsL2EH1_3EvNKHNOYk4T6kRaJVIDpjEH2AGpu3f3s=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "/Users/pinger/.ohos/config/default_harmony_LOIsL2EH1_3EvNKHNOYk4T6kRaJVIDpjEH2AGpu3f3s=.p12",
+          "storePassword": "0000001B092688DB955757D4770401B86E48FB0E841E0C1EF064E897453F377BABDA97F120B3BB1662F85C"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
+        "signingConfig": "default",
         "compatibleSdkVersion": "5.0.0(12)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
@@ -16,8 +31,12 @@
       }
     ],
     "buildModeSet": [
-      { "name": "debug" },
-      { "name": "release" }
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
     ]
   },
   "modules": [
@@ -27,7 +46,9 @@
       "targets": [
         {
           "name": "default",
-          "applyToProducts": ["default"]
+          "applyToProducts": [
+            "default"
+          ]
         }
       ]
     }
