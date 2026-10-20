@@ -40,6 +40,7 @@
     overlays: [],      // 文字/贴纸对象（未烘焙）
     adjust: null,      // 当前调节参数（见 defaultAdjust）
     filterName: 'none',
+    filterIntensity: 100,
     hsl: null,         // HSL 分色调整
     tool: null,
     history: [],
@@ -99,6 +100,7 @@
     C.state.adjust = C.defaultAdjust();
     C.state.hsl = C.defaultHSL();
     C.state.filterName = 'none';
+    C.state.filterIntensity = 100;
     C.resetView();
     C.state.history = [];
     C.state.hIndex = -1;
@@ -175,6 +177,7 @@
     C.state.adjust = C.defaultAdjust();
     C.state.hsl = C.defaultHSL();
     C.state.filterName = 'none';
+    C.state.filterIntensity = 100;
     C.pushHistory();
     C.render();
     U.toast('已恢复原图');
@@ -194,6 +197,20 @@
     return parts.join(' ');
   };
 
+  // 统一绘制：把 base 按 滤镜+调节+强度 画到 ctx（render/bake 共用）
+  C.drawFilteredBase = function (ctx, base) {
+    const s = C.state;
+    const css = C.buildFilterCSS();
+    if (!css || !C.filterSupported) { ctx.drawImage(base, 0, 0); return; }
+    const intensity = (s.filterIntensity == null ? 100 : s.filterIntensity) / 100;
+    if (intensity >= 1) {
+      ctx.save(); ctx.filter = css; ctx.drawImage(base, 0, 0); ctx.restore();
+    } else {
+      ctx.drawImage(base, 0, 0);
+      ctx.save(); ctx.filter = css; ctx.globalAlpha = intensity; ctx.drawImage(base, 0, 0); ctx.restore();
+    }
+  };
+
   /* ---------------- 渲染 ---------------- */
   // 将 base + 滤镜调节 + 覆盖物 合成到显示画布
   C.render = function () {
@@ -202,10 +219,7 @@
     const w = s.base.width, h = s.base.height;
     canvas.width = w; canvas.height = h;
 
-    ctx.save();
-    if (C.filterSupported) ctx.filter = C.buildFilterCSS() || 'none';
-    ctx.drawImage(s.base, 0, 0);
-    ctx.restore();
+    C.drawFilteredBase(ctx, s.base);
 
     // 无 ctx.filter 环境的降级：CSS 预览仅影响显示（烘焙时用像素算法）
     if (!C.filterSupported) canvas.style.filter = C.buildFilterCSS() || 'none';
@@ -315,16 +329,12 @@
     const f = C.FILTERS[s.filterName] || {};
     let out;
 
-    if (C.filterSupported && css) {
+    if (css && C.filterSupported) {
       out = U.makeCanvas(s.base.width, s.base.height);
-      const octx = out.getContext('2d');
-      octx.filter = css;
-      octx.drawImage(s.base, 0, 0);
-    } else if (css) {
-      out = U.cloneCanvas(s.base);
-      NX.pixels.applyFilterFallback(out, s);
+      C.drawFilteredBase(out.getContext('2d'), s.base);
     } else {
       out = U.cloneCanvas(s.base);
+      if (css) NX.pixels.applyFilterFallback(out, s);
     }
     const octx = out.getContext('2d');
     if (f.tint) C.applyTint(octx, out.width, out.height, f.tint[0], f.tint[1]);
@@ -341,6 +351,7 @@
     s.adjust = C.defaultAdjust();
     s.hsl = C.defaultHSL();
     s.filterName = 'none';
+    s.filterIntensity = 100;
   };
 
   C.commitAdjustments = function () {
@@ -362,9 +373,11 @@
     const out = U.makeCanvas(s.base.width, s.base.height);
     const octx = out.getContext('2d');
     const css = C.buildFilterCSS();
-    if (C.filterSupported && css) octx.filter = css;
-    octx.drawImage(s.base, 0, 0);
-    if (!C.filterSupported && css) NX.pixels.applyFilterFallback(out, s);
+    if (css && C.filterSupported) C.drawFilteredBase(octx, s.base);
+    else {
+      octx.drawImage(s.base, 0, 0);
+      if (css) NX.pixels.applyFilterFallback(out, s);
+    }
     const f = C.FILTERS[s.filterName] || {};
     if (f.tint) C.applyTint(octx, out.width, out.height, f.tint[0], f.tint[1]);
     if (s.adjust.temp < 0) C.applyTint(octx, out.width, out.height, '#3D7BFF', -s.adjust.temp / 600);

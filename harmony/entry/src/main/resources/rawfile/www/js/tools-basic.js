@@ -8,12 +8,12 @@
   NX.tools.filter = {
     panel() {
       const chips = Object.entries(C.FILTERS).map(([k, f]) => {
-        const grad = this.demoGradient(k);
-        return `<button class="chip ${S().filterName === k ? 'active' : ''}" data-filter="${k}"><span class="demo" style="background:${grad}"></span>${f.name}</button>`;
+        return `<button class="chip ${S().filterName === k ? 'active' : ''}" data-filter="${k}"><span class="demo" data-thumb="${k}"></span>${f.name}</button>`;
       }).join('');
       return `<h3>🎨 滤镜</h3><div class="chip-grid">${chips}</div>
+        ${U.sliderRow('filterIntensity', '强度', 10, 100, NX.core.state.filterIntensity)}
         <button class="btn block" id="filterApply">✅ 应用滤镜</button>
-        <p class="hint">点击滤镜实时预览，"应用滤镜"后进入下一段编辑。</p>`;
+        <p class="hint">点击滤镜实时预览，可调强度；"应用滤镜"后进入下一段编辑。</p>`;
     },
     demoGradient(k) {
       const g = {
@@ -38,7 +38,33 @@
         C.render();
         U.$$('#panel [data-filter]').forEach(x => x.classList.toggle('active', x === b));
       }));
+      const deb = U.debounce(() => C.render(), 30);
+      U.bindSlider('filterIntensity', v => { S().filterIntensity = v; deb(); });
       U.$('#filterApply').addEventListener('click', C.commitAdjustments);
+      this.renderThumbs();
+    },
+    // 用当前图片生成每款滤镜的真实缩略图（美图式）
+    renderThumbs() {
+      const b = S().base;
+      if (!b) return;
+      const tw = 72, th = 54;
+      for (const [k, f] of Object.entries(C.FILTERS)) {
+        const el = U.$(`#panel [data-thumb="${k}"]`);
+        if (!el) continue;
+        try {
+          const c = U.makeCanvas(tw, th);
+          const ctx = c.getContext('2d');
+          ctx.save();
+          if (C.filterSupported && f.css) ctx.filter = f.css;
+          const s = Math.max(tw / b.width, th / b.height);
+          ctx.drawImage(b, (tw - b.width * s) / 2, (th - b.height * s) / 2, b.width * s, b.height * s);
+          ctx.restore();
+          if (f.tint) C.applyTint(ctx, tw, th, f.tint[0], f.tint[1]);
+          if (f.vig) C.drawVignette(ctx, tw, th, f.vig);
+          el.style.backgroundImage = `url(${c.toDataURL('image/jpeg', 0.7)})`;
+          el.style.backgroundSize = 'cover';
+        } catch (e) { /* 单个失败不影响 */ }
+      }
     },
     leave() {},
   };
