@@ -320,35 +320,34 @@
     apply() {
       C.flattenOverlays();
       const b = S().base;
-      const blurred = U.cloneCanvas(b);
-      P.boxBlur(blurred, Math.round(this.strength));
-      const out = U.cloneCanvas(blurred);
-      const octx = out.getContext('2d');
-      octx.save();
+      // 1) 全图模糊副本做底
+      const out = U.cloneCanvas(b);
+      P.boxBlur(out, Math.round(this.strength));
+      // 2) 生成"清晰区"蒙版（白=保持清晰）
+      const mask = U.makeCanvas(b.width, b.height);
+      const mctx = mask.getContext('2d');
       if (this.mode === 'radial' && this.center) {
-        // 清晰椭圆 + 羽化过渡
-        const g = octx.createRadialGradient(this.center.x, this.center.y, b.width * 0.14,
+        const g = mctx.createRadialGradient(this.center.x, this.center.y, b.width * 0.14,
           this.center.x, this.center.y, b.width * 0.3);
-        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-        octx.fillStyle = g;
-        octx.fillRect(0, 0, out.width, out.height);
-        octx.globalCompositeOperation = 'source-in';
-        octx.drawImage(b, 0, 0);
+        g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        mctx.fillStyle = g; mctx.fillRect(0, 0, mask.width, mask.height);
       } else if (this.mode === 'linear' && this.center) {
         const bw = b.width * 0.2;
-        const g = octx.createLinearGradient(this.center.x - bw * 1.8, 0, this.center.x + bw * 1.8, 0);
-        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.35, 'rgba(0,0,0,1)');
-        g.addColorStop(0.65, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-        octx.fillStyle = g;
-        octx.fillRect(0, 0, out.width, out.height);
-        octx.globalCompositeOperation = 'source-in';
-        octx.drawImage(b, 0, 0);
+        const g = mctx.createLinearGradient(this.center.x - bw * 1.8, 0, this.center.x + bw * 1.8, 0);
+        g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.35, 'rgba(255,255,255,1)');
+        g.addColorStop(0.65, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        mctx.fillStyle = g; mctx.fillRect(0, 0, mask.width, mask.height);
       } else if (this.mode === 'mask' && this.protect) {
-        octx.drawImage(this.protect, 0, 0);
-        octx.globalCompositeOperation = 'source-in';
-        octx.drawImage(b, 0, 0);
+        mctx.drawImage(this.protect, 0, 0);
+      } else {
+        U.toast('先拖动定位清晰区（或涂抹保护区）'); return;
       }
-      octx.restore();
+      // 3) 原图按蒙版抠出清晰区，盖到模糊底上
+      const sharp = U.cloneCanvas(b);
+      const sctx = sharp.getContext('2d');
+      sctx.globalCompositeOperation = 'destination-in';
+      sctx.drawImage(mask, 0, 0);
+      out.getContext('2d').drawImage(sharp, 0, 0);
       S().base = out;
       this.protect = null; this.center = null;
       C.pushHistory(); C.render();
