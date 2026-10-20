@@ -10,6 +10,30 @@
   C.ctx = ctx;
   C.filterSupported = (typeof ctx.filter === 'string');
 
+  // 视图缩放/平移（仅影响显示，不影响像素；坐标换算已含 transform）
+  C.view = { s: 1, x: 0, y: 0 };
+  C.applyView = function () {
+    const v = C.view;
+    canvas.style.transformOrigin = '0 0';
+    canvas.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.s})`;
+    const lbl = U.$('#zoomLabel');
+    if (lbl) lbl.textContent = Math.round(v.s * 100) + '%';
+  };
+  C.resetView = function () {
+    C.view = { s: 1, x: 0, y: 0 };
+    C.applyView();
+  };
+  C.zoomBy = function (factor) {
+    const v = C.view;
+    v.s = U.clamp(v.s * factor, 0.2, 12);   // 以画布原点为锚缩放，配合平移使用
+    C.applyView();
+  };
+  // 平移（拖拽空白区或用两指/平移模式）
+  C.panBy = function (dx, dy) {
+    C.view.x += dx; C.view.y += dy;
+    C.applyView();
+  };
+
   C.state = {
     base: null,        // 已提交的像素（offscreen canvas）
     orig: null,        // 原图（用于"原图"重置）
@@ -67,6 +91,7 @@
     C.state.adjust = C.defaultAdjust();
     C.state.hsl = C.defaultHSL();
     C.state.filterName = 'none';
+    C.resetView();
     C.state.history = [];
     C.state.hIndex = -1;
     C.pushHistory();
@@ -109,6 +134,15 @@
       c.getContext('2d').drawImage(img, 0, 0);
       s.base = c;
       s.overlays = JSON.parse(h.overlays);
+      // 图片贴纸：从 dataURL 重建 Image
+      for (const o of s.overlays) {
+        if (o.type === 'image' && o.src && !o.img) {
+          const im = new Image();
+          im.onload = () => C.render();
+          im.src = o.src;
+          o.img = im;
+        }
+      }
       s.adjust = JSON.parse(h.adjust);
       s.hsl = JSON.parse(h.hsl);
       s.filterName = h.filterName;
@@ -217,6 +251,9 @@
     } else if (o.type === 'sticker') {
       c.font = `${o.size}px "Apple Color Emoji", sans-serif`;
       c.fillText(o.emoji, 0, 0);
+    } else if (o.type === 'image' && o.img) {
+      const w = o.size, h = o.size * (o.img.height / o.img.width);
+      c.drawImage(o.img, -w / 2, -h / 2, w, h);
     }
     c.restore();
     if (selected) {
@@ -231,6 +268,10 @@
 
   C.overlayHalfSize = function (o) {
     if (o.type === 'sticker') return { hw: o.size / 2 + 6, hh: o.size / 2 + 6 };
+    if (o.type === 'image' && o.img) {
+      const h = o.size * (o.img.height / o.img.width);
+      return { hw: o.size / 2 + 6, hh: h / 2 + 6 };
+    }
     const w = (o.width || o.size * Math.max(1, o.text.length) * 0.62);
     return { hw: w / 2 + 6, hh: o.size / 2 + 6 };
   };
@@ -333,10 +374,60 @@
     };
   };
 
+  /* ---- 缩放/平移交互 ---- */
+  const stageEl = U.$('#stage');
+  // 滚轮（触控板双指）缩放；Alt+滚轮也缩放
+  stageEl.addEventListener('wheel', (e) => {
+    if (!C.state.base) return;
+    e.preventDefault();
+    const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    C.zoomBy(f);
+  }, { passive: false });
+
+  // 双指捏合（触屏）：第二根手指落下时结束当前笔画进入捏合
+  const touches = new Map();
+  let pinchStart = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) {
+      // 结束工具笔画
+      const t = NX.tools[C.state.tool];
+      if (dragging && t && t.onUp) { try { t.onUp(C.toImageCoords(e), e); } catch (_) {} }
+      const pts = [...touches.values()];
+      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      pinchStart = { d, s: C.view.s };
+    }
+  }, true);
+  canvas.addEventListener('pointermove', (e) => {
+    if (!touches.has(e.pointerId)) return;
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2 && pinchStart) {
+      const pts = [...touches.values()];
+      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      C.view.s = U.clamp(pinchStart.s * d / Math.max(1, pinchStart.d), 0.2, 12);
+      C.applyView();
+      e.stopPropagation();
+    }
+  }, true);
+  const clearTouch = (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinchStart = null; };
+  canvas.addEventListener('pointerup', clearTouch, true);
+  canvas.addEventListener('pointercancel', clearTouch, true);
+
+  // 缩放控件（悬浮于画布右下）
+  const zoomBar = document.createElement('div');
+  zoomBar.id = 'zoomBar';
+  zoomBar.innerHTML = '<button id="zoomOut">−</button><button id="zoomLabel">100%</button><button id="zoomIn">＋</button>';
+  stageEl.appendChild(zoomBar);
+  U.$('#zoomOut').addEventListener('click', () => C.zoomBy(1 / 1.25));
+  U.$('#zoomIn').addEventListener('click', () => C.zoomBy(1.25));
+  U.$('#zoomLabel').addEventListener('click', () => C.resetView());
+
   let dragging = false;
   function dispatch(name, e) {
     const t = NX.tools[C.state.tool];
     if (!t || !t[name] || !C.state.base || C.state.busy) return;
+    if (touches.size >= 2) return;   // 捏合中
     e.preventDefault();
     t[name](C.toImageCoords(e), e);
   }

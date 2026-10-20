@@ -35,18 +35,23 @@
     leave() {},
   };
 
-  /* ============ 涂鸦 ============ */
+  /* ============ 涂鸦（自由笔 + 形状） ============ */
   NX.tools.doodle = {
     color: '#FF3B30', width: 8, painting: false, last: null,
+    shape: 'free', start: null, cur: null,
+    shapes: [['free', '✏️ 自由'], ['line', '➖ 直线'], ['arrow', '➡️ 箭头'], ['rect', '⬜ 矩形'], ['ellipse', '⭕ 圆形']],
     panel() {
       return `<h3>🖌️ 涂鸦</h3>
+        <div class="chip-grid" style="grid-template-columns:repeat(5,1fr)" id="ddShapes">
+          ${this.shapes.map(([k, n]) => `<button class="chip ${this.shape === k ? 'active' : ''}" data-sh="${k}">${n}</button>`).join('')}
+        </div>
         <div class="row"><label>颜色</label><input type="color" id="ddColor" value="${this.color}">
           <div class="swatch-row" style="margin:0">
             ${['#FF3B30','#FF9500','#FFD93D','#4CD964','#007AFF','#AF52DE','#000000','#FFFFFF'].map(c =>
               `<div class="swatch" data-c="${c}" style="background:${c};width:22px;height:22px"></div>`).join('')}
           </div></div>
         ${U.sliderRow('ddW', '粗细', 2, 60, this.width)}
-        <p class="hint">自由涂画；画错用顶部"撤销"。</p>`;
+        <p class="hint">自由笔直接涂画；形状按住拖动、松手成型。画错用顶部"撤销"。</p>`;
     },
     bind() {
       U.$('#ddColor').addEventListener('input', e => this.color = e.target.value);
@@ -54,10 +59,51 @@
         this.color = s.dataset.c; U.$('#ddColor').value = s.dataset.c;
       }));
       U.bindSlider('ddW', v => this.width = v);
+      U.$$('#ddShapes [data-sh]').forEach(b => b.addEventListener('click', () => {
+        this.shape = b.dataset.sh;
+        U.$$('#ddShapes [data-sh]').forEach(x => x.classList.toggle('active', x === b));
+      }));
     },
-    onDown(p) { C.commitAdjustments(); this.painting = true; this.last = p; this.dot(p); },
+    onDown(p) {
+      C.commitAdjustments();
+      this.painting = true; this.last = p;
+      if (this.shape === 'free') this.dot(p);
+      else { this.start = p; this.cur = p; }
+    },
+    drawShape(ctx, a, b, preview) {
+      ctx.save();
+      ctx.strokeStyle = this.color; ctx.fillStyle = this.color;
+      ctx.lineWidth = this.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (preview) ctx.setLineDash([8, 5]);
+      if (this.shape === 'line' || this.shape === 'arrow') {
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        if (this.shape === 'arrow') {
+          const ang = Math.atan2(b.y - a.y, b.x - a.x);
+          const hl = Math.max(12, this.width * 2.5);
+          ctx.beginPath();
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(b.x - hl * Math.cos(ang - 0.45), b.y - hl * Math.sin(ang - 0.45));
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(b.x - hl * Math.cos(ang + 0.45), b.y - hl * Math.sin(ang + 0.45));
+          ctx.stroke();
+        }
+      } else if (this.shape === 'rect') {
+        ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+      } else if (this.shape === 'ellipse') {
+        ctx.beginPath();
+        ctx.ellipse((a.x + b.x) / 2, (a.y + b.y) / 2, Math.abs(b.x - a.x) / 2, Math.abs(b.y - a.y) / 2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    },
+    draw(ctx) {
+      if (this.shape !== 'free' && this.painting && this.start && this.cur) {
+        this.drawShape(ctx, this.start, this.cur, true);
+      }
+    },
     onMove(p) {
       if (!this.painting) return;
+      if (this.shape !== 'free') { this.cur = p; C.render(); return; }
       const ctx = S().base.getContext('2d');
       ctx.save();
       ctx.strokeStyle = this.color; ctx.lineWidth = this.width;
@@ -67,7 +113,15 @@
       this.last = p;
       C.render();
     },
-    onUp() { if (this.painting) { this.painting = false; C.pushHistory(); } },
+    onUp(p) {
+      if (!this.painting) return;
+      this.painting = false;
+      if (this.shape !== 'free' && this.start && p) {
+        this.drawShape(S().base.getContext('2d'), this.start, p, false);
+        this.start = null; this.cur = null;
+      }
+      C.pushHistory(); C.render();
+    },
     dot(p) {
       const ctx = S().base.getContext('2d');
       ctx.save(); ctx.fillStyle = this.color;
@@ -210,15 +264,39 @@
       return `<h3>🌟 贴纸</h3>
         <div class="emoji-grid">${this.emojis.map(e =>
           `<button class="${e === this.emoji ? 'active' : ''}" data-e="${e}">${e}</button>`).join('')}</div>
+        <button class="btn block" id="stUpload">🖼 上传图片当贴纸</button>
         ${U.sliderRow('stSize', '大小', 24, 300, this.size)}
         <button class="btn block warn" id="stDel" ${this.selected < 0 ? 'disabled' : ''}>🗑 删除选中</button>
         <p class="hint">选 emoji → 点画面放置；拖动移动；滑杆调整"下一个"大小，也可实时改选中的。</p>`;
     },
+    pendingImg: null,
     bind() {
       U.$$('#panel .emoji-grid button').forEach(b => b.addEventListener('click', () => {
         this.emoji = b.dataset.e;
+        this.pendingImg = null;
         U.$$('#panel .emoji-grid button').forEach(x => x.classList.toggle('active', x === b));
       }));
+      U.$('#stUpload').addEventListener('click', () => {
+        const inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = 'image/*';
+        inp.onchange = async (e) => {
+          try {
+            const img = await U.loadImageFromFile(e.target.files[0]);
+            // 限制贴纸分辨率
+            const s = Math.min(1, 800 / Math.max(img.width, img.height));
+            const c = U.makeCanvas(img.width * s, img.height * s);
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            const im = new Image();
+            im.onload = () => {
+              this.pendingImg = { img: im, src: c.toDataURL('image/png') };
+              U.$$('#panel .emoji-grid button').forEach(x => x.classList.remove('active'));
+              U.toast('图片贴纸已就绪，点画面放置');
+            };
+            im.src = c.toDataURL('image/png');
+          } catch (err) { U.toast('图片加载失败'); }
+        };
+        inp.click();
+      });
       U.bindSlider('stSize', v => {
         this.size = v;
         if (this.selected >= 0 && S().overlays[this.selected]) {
@@ -236,6 +314,11 @@
         this.selected = i;
         const o = S().overlays[i];
         this.dragOff = { dx: p.x - o.x, dy: p.y - o.y };
+        C.render(); NX.main.refreshPanel();
+      } else if (this.pendingImg) {
+        S().overlays.push({ type: 'image', img: this.pendingImg.img, src: this.pendingImg.src,
+          size: this.size * 2, x: p.x, y: p.y });
+        this.selected = S().overlays.length - 1;
         C.render(); NX.main.refreshPanel();
       } else {
         S().overlays.push({ type: 'sticker', emoji: this.emoji, size: this.size, x: p.x, y: p.y });
