@@ -173,6 +173,7 @@ body {
 .provider-card.active { border-color: var(--lemon-deep); box-shadow: 0 2px 14px rgba(245,184,0,.18); }
 .pv-head { display: flex; align-items: center; gap: 8px; }
 .pv-emoji { font-size: 22px; }
+.pv-head > div { flex: 1; min-width: 0; }
 .pv-name { font-weight: 700; font-size: 14px; }
 .pv-url { font-size: 11px; color: var(--muted); margin-top: 2px; word-break: break-all; }
 .pv-tag { font-size: 10px; background: #E8F5E9; color: #2E7D32; border-radius: 5px; padding: 2px 6px; margin-left: 6px; }
@@ -183,7 +184,12 @@ body {
   background: var(--soft); color: var(--ink);
 }
 .provider-card.active .pv-toggle { background: var(--lemon); }
-.pv-body { margin-top: 10px; }
+.pv-body { display: none; margin-top: 10px; }
+.provider-card.expanded .pv-body { display: block; }
+.provider-card.expanded { border-color: var(--lemon-deep); }
+.pv-head { cursor: pointer; }
+.pv-caret { color: var(--muted); font-size: 12px; transition: transform .15s; }
+.provider-card.expanded .pv-caret { transform: rotate(180deg); }
 .pv-body .row { margin: 6px 0; }
 .pv-actions { display: flex; gap: 8px; margin-top: 8px; }
 .pv-actions .btn { flex: 1; padding: 7px 0; font-size: 12px; }

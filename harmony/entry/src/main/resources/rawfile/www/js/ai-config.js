@@ -21,6 +21,12 @@
       modelEdit: 'image-01', modelDraw: 'image-01' },
     { id: 'xfyun', emoji: '🔊', name: '讯飞星火', baseUrl: 'https://spark-api-open.xf-yun.com/v1',
       modelEdit: 'spark-image', modelDraw: 'spark-image' },
+    { id: 'kimi', emoji: '🌙', name: '月之暗面 Kimi', baseUrl: 'https://api.moonshot.cn/v1',
+      modelEdit: 'kimi-latest', modelDraw: 'kimi-latest',
+      note: 'Kimi 擅长文本/图像理解；若图像生成接口未开放，绘画类功能请切别家' },
+    { id: 'deepseek', emoji: '🐋', name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1',
+      modelEdit: 'deepseek-vl2', modelDraw: 'deepseek-vl2',
+      note: '同理：文本强，图像生成视模型开放情况' },
     { id: 'openai', emoji: '🌍', name: 'OpenAI 官方', baseUrl: 'https://api.openai.com/v1',
       modelEdit: 'gpt-image-1', modelDraw: 'gpt-image-1' },
   ];
@@ -224,6 +230,7 @@
           <div class="pv-url">${U.esc(info.baseUrl)}</div>
         </div>
         <button class="pv-toggle" data-act="use">${info.active ? '✓ 使用中' : '启用'}</button>
+        <span class="pv-caret">▼</span>
       </div>
       <div class="pv-body">
         <div class="row"><label>API Key</label><input type="password" data-f="apiKey" value="${U.esc(info.apiKey)}" placeholder="填这家厂商的 Key 就行"></div>
@@ -261,8 +268,15 @@
       AI.renderSettings(el);
     });
     // 卡片操作
-    U.$$('.provider-card', el).forEach(card => {
+    U.$$('.provider-card[data-pid]', el).forEach(card => {
       const id = card.dataset.pid;
+      // 点头部展开/收起（手风琴：同时只展开一个）
+      card.querySelector('.pv-head').addEventListener('click', (e) => {
+        if (e.target.closest('[data-act]')) return;  // 点启用按钮不触发折叠
+        const wasOpen = card.classList.contains('expanded');
+        U.$$('.provider-card[data-pid]', el).forEach(c => c.classList.remove('expanded'));
+        if (!wasOpen) card.classList.add('expanded');
+      });
       const collect = () => {
         const p = AI.cfg.providers[id] || {};
         U.$$('input[data-f]', card).forEach(inp => { p[inp.dataset.f] = inp.value.trim(); });
