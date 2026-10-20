@@ -1,0 +1,10 @@
+.DS_Store
+# DevEco / hvigor 构建产物
+harmony/**/build/
+harmony/.hvigor/
+harmony/.idea/
+harmony/oh_modules/
+harmony/**/oh_modules/
+harmony/local.properties
+harmony/.preview/
+node_modules/

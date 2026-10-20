@@ -1,0 +1,10 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "ningxiu",
+  "version": "1.0.0",
+  "description": "柠檬秀秀 - 柠檬味图片编辑器（ArkWeb 壳）",
+  "main": "",
+  "author": "fourgrid",
+  "license": "MIT",
+  "dependencies": {}
+}
