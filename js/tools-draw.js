@@ -134,6 +134,10 @@
   /* ============ 文字 ============ */
   NX.tools.text = {
     opts: { text: '柠檬你好', size: 48, color: '#FFFFFF', font: '"PingFang SC", sans-serif', bold: true, italic: false, stroke: true, strokeColor: '#333333', shadow: true },
+    gradients: [
+      ['', '纯色'], ['#FFD93D,#FF5A7E', '柠檬红'], ['#56CCF2,#2F80ED', '海洋'],
+      ['#A8E063,#56AB2F', '青草'], ['#F7971E,#FFD200', '金橙'], ['#C471ED,#F64F59', '紫粉'],
+    ],
     selected: -1, dragOff: null,
     panel() {
       const sel = S().overlays[this.selected];
@@ -154,13 +158,21 @@
           <label><input type="checkbox" id="txStroke" ${o.stroke ? 'checked' : ''}> 描边</label>
           <label><input type="checkbox" id="txShadow" ${o.shadow ? 'checked' : ''}> 阴影</label>
         </div>
+        <div class="chip-grid" style="grid-template-columns:repeat(6,1fr)" id="txGrad">
+          ${this.gradients.map(([g, n]) => {
+            const cur = (sel && sel.gradient) ? sel.gradient.join(',') : (this.pendingGrad || '');
+            return `<button class="chip ${cur === g ? 'active' : ''}" data-g="${g}" title="${n}" style="${g ? `background:linear-gradient(135deg,${g.split(',')[0]},${g.split(',')[1]});color:#fff` : ''}">${n}</button>`;
+          }).join('')}
+        </div>
         <button class="btn block primary" id="txAdd">➕ ${sel ? '更新选中文字' : '点击画面放置'}</button>
         <button class="btn block warn" id="txDel" ${this.selected < 0 ? 'disabled' : ''}>🗑 删除选中</button>
         <p class="hint">点击画面放置；拖动移动；双击文字重新编辑。</p>`;
     },
     readPanel() {
+      const grad = this.pendingGrad;
       return {
         type: 'text',
+        gradient: grad ? grad.split(',') : null,
         text: U.$('#txText').value || '文字',
         size: parseInt(U.$('#txSize').value),
         color: U.$('#txColor').value,
@@ -174,6 +186,16 @@
     },
     bind() {
       U.bindSlider('txSize', () => {});
+      U.$$('#txGrad [data-g]').forEach(b => b.addEventListener('click', () => {
+        this.pendingGrad = b.dataset.g || null;
+        U.$$('#txGrad [data-g]').forEach(x => x.classList.toggle('active', x === b));
+        // 选中文字时实时改渐变
+        if (this.selected >= 0 && S().overlays[this.selected]) {
+          const o = S().overlays[this.selected];
+          o.gradient = this.pendingGrad ? this.pendingGrad.split(',') : null;
+          C.render();
+        }
+      }));
       U.$('#txAdd').addEventListener('click', () => {
         const o = this.readPanel();
         if (this.selected >= 0 && S().overlays[this.selected]) {
@@ -244,6 +266,8 @@
       const i = this.hitTest(p);
       if (i >= 0 && S().overlays[i].type === 'text') {
         this.selected = i;
+        const o = S().overlays[i];
+        this.pendingGrad = o.gradient ? o.gradient.join(',') : null;
         NX.main.refreshPanel();
       }
     },
@@ -448,10 +472,19 @@
         ${U.sliderRow('btWhiten', '美白', 0, 100, this.whiten)}
         <button class="btn block primary" id="btOne">✨ 一键美颜</button>
         <button class="btn block" id="btApply">✅ 应用当前参数</button>
-        <h4>局部</h4>
-        <button class="btn block" id="btEye">👁 亮眼（点按眼睛）</button>
-        <p class="hint">磨皮/美白全图生效；亮眼为点按局部生效。瘦脸大眼请用左侧「液化」。</p>`;
+        <h4>局部精修（点按生效）</h4>
+        <div class="chip-grid">
+          <button class="chip" data-lm="eye">👁 亮眼</button>
+          <button class="chip" data-lm="teeth">🦷 白牙</button>
+          <button class="chip" data-lm="eyecircle">🌚 祛黑眼圈</button>
+        </div>
+        <h4>增高</h4>
+        ${U.sliderRow('btStretch', '幅度', 103, 135, 112)}
+        <button class="btn block" id="btStretchGo">📏 点画面选腰线后点这里</button>
+        <p class="hint">局部精修：选功能后点按对应部位。增高：先点一下画面选腰线位置，再点按钮，腰线以下拉长。</p>`;
     },
+    localMode: '',   // eye | teeth | eyecircle
+    stretchY: null,
     eyeMode: false,
     bind() {
       U.bindSlider('btSmooth', v => this.smooth = v);
@@ -477,19 +510,43 @@
           U.toast('已应用');
         }, 30);
       });
-      U.$('#btEye').addEventListener('click', () => {
-        this.eyeMode = !this.eyeMode;
-        U.$('#btEye').textContent = this.eyeMode ? '👁 亮眼已开启（点眼睛）' : '👁 亮眼（点按眼睛）';
+      U.$$('#panel [data-lm]').forEach(b => b.addEventListener('click', () => {
+        this.localMode = this.localMode === b.dataset.lm ? '' : b.dataset.lm;
+        U.$$('#panel [data-lm]').forEach(x => x.classList.toggle('active', x.dataset.lm === this.localMode));
+        if (this.localMode) U.toast('点按画面中的部位生效');
+      }));
+      U.$('#btStretchGo').addEventListener('click', () => {
+        if (this.stretchY == null) { U.toast('先在画面上点一下选腰线'); return; }
+        C.flattenOverlays();
+        const k = parseInt(U.$('#btStretch').value) / 100;
+        S().base = P.stretchBelow(S().base, this.stretchY, k);
+        this.stretchY = null;
+        C.pushHistory(); C.render();
+        U.toast('增高完成 📏');
       });
     },
     onDown(p) {
-      if (this.eyeMode) {
-        C.flattenOverlays();
-        P.brightenEyes(S().base, { x: p.x, y: p.y, r: S().base.width * 0.05 }, 0.8);
-        C.pushHistory(); C.render();
+      // 无局部模式时记录腰线
+      if (!this.localMode) { this.stretchY = p.y; U.toast('腰线已选，点「增高」按钮生效'); C.render(); return; }
+      C.flattenOverlays();
+      const b = S().base;
+      const r = b.width * 0.05;
+      if (this.localMode === 'eye') P.brightenEyes(b, { x: p.x, y: p.y, r }, 0.8);
+      else if (this.localMode === 'teeth') P.whitenTeeth(b, { x: p.x, y: p.y, r: r * 0.8 }, 0.9);
+      else if (this.localMode === 'eyecircle') P.removeEyeCircle(b, { x: p.x, y: p.y, r: r * 1.2 }, 0.85);
+      C.pushHistory(); C.render();
+    },
+    draw(ctx) {
+      // 腰线指示
+      if (this.stretchY != null && !this.localMode) {
+        const b = S().base;
+        ctx.save();
+        ctx.strokeStyle = '#FF5A7E'; ctx.setLineDash([10, 6]); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, this.stretchY); ctx.lineTo(b.width, this.stretchY); ctx.stroke();
+        ctx.restore();
       }
     },
-    leave() { this.eyeMode = false; },
+    leave() { this.localMode = ''; this.stretchY = null; },
   };
 
   /* ============ 液化（瘦脸/大眼/增高） VIP ============ */

@@ -76,6 +76,14 @@
     japan:  { name: '日系',   css: 'brightness(1.1) contrast(0.92) saturate(0.85) sepia(0.1)' },
     drama:  { name: '电影感', css: 'contrast(1.18) saturate(1.1) brightness(0.96) sepia(0.12)', vig: 0.3 },
     vivid:  { name: '鲜艳',   css: 'saturate(1.6) contrast(1.1)' },
+    sunset: { name: '落日',   css: 'sepia(0.4) saturate(1.5) hue-rotate(-15deg) brightness(1.03)' },
+    milk:   { name: '奶茶',   css: 'sepia(0.25) brightness(1.09) contrast(0.9) saturate(0.95)' },
+    mist:   { name: '雾灰',   css: 'contrast(0.8) brightness(1.1) saturate(0.55)' },
+    verdant:{ name: '青翠',   css: 'saturate(1.25) brightness(1.04)', tint: ['#7CB342', 0.13] },
+    matcha: { name: '抹茶',   css: 'saturate(0.9) brightness(1.05)', tint: ['#8FAE6B', 0.16] },
+    lavend: { name: '紫夜',   css: 'brightness(0.95) saturate(1.1) contrast(1.05)', tint: ['#7C4DFF', 0.15] },
+    softlit:{ name: '柔光',   css: 'brightness(1.06) contrast(0.85) saturate(1.05) blur(0.4px)' },
+    ink:    { name: '墨彩',   css: 'grayscale(0.85) contrast(1.32) brightness(1.02)' },
   };
 
   /* ---------------- 载入 / 设置图片 ---------------- */
@@ -246,7 +254,14 @@
       c.font = `${o.bold ? 'bold ' : ''}${o.italic ? 'italic ' : ''}${o.size}px ${o.font || '"PingFang SC", sans-serif'}`;
       if (o.shadow) { c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = o.size / 8; c.shadowOffsetY = 2; }
       if (o.stroke) { c.lineWidth = Math.max(2, o.size / 10); c.strokeStyle = o.strokeColor || '#fff'; c.strokeText(o.text, 0, 0); }
-      c.fillStyle = o.color;
+      if (o.gradient && o.gradient.length >= 2) {
+        const w = o.width || o.size * o.text.length * 0.62;
+        const g = c.createLinearGradient(-w / 2, -o.size / 2, w / 2, o.size / 2);
+        o.gradient.forEach((col, i) => g.addColorStop(i / (o.gradient.length - 1), col));
+        c.fillStyle = g;
+      } else {
+        c.fillStyle = o.color;
+      }
       c.fillText(o.text, 0, 0);
     } else if (o.type === 'sticker') {
       c.font = `${o.size}px "Apple Color Emoji", sans-serif`;

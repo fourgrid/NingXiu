@@ -346,6 +346,73 @@
     function C_filterSafe(f) { return NX.core.filterSupported ? f : 'none'; }
   };
 
+  // 白牙：局部提亮 + 去黄去饱和，p={x,y,r}
+  P.whitenTeeth = function (canvas, p, amt) {
+    const ctx = canvas.getContext('2d');
+    const r = Math.round(p.r);
+    const x0 = clamp(p.x - r, 0, canvas.width), y0 = clamp(p.y - r, 0, canvas.height);
+    const w = clamp(p.x + r, 0, canvas.width) - x0, h = clamp(p.y + r, 0, canvas.height) - y0;
+    if (w <= 0 || h <= 0) return;
+    const id = ctx.getImageData(x0, y0, w, h);
+    const d = id.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const dx = x + x0 - p.x, dy = y + y0 - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) / r;
+      if (dist > 1) continue;
+      const fall = (1 - dist * dist) * amt;
+      const i = (y * w + x) * 4;
+      const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      // 去黄：降红绿差；去饱和；提亮
+      d[i]     = clamp(d[i]     + (l - d[i])     * 0.45 * fall + 22 * fall, 0, 255);
+      d[i + 1] = clamp(d[i + 1] + (l - d[i + 1]) * 0.45 * fall + 24 * fall, 0, 255);
+      d[i + 2] = clamp(d[i + 2] + (l - d[i + 2]) * 0.35 * fall + 26 * fall, 0, 255);
+    }
+    ctx.putImageData(id, x0, y0);
+  };
+
+  // 祛黑眼圈：局部柔化 + 温和提亮（保纹理），p={x,y,r}
+  P.removeEyeCircle = function (canvas, p, amt) {
+    const ctx = canvas.getContext('2d');
+    const r = Math.round(p.r);
+    const patch = U.makeCanvas(r * 2, r * 2);
+    patch.getContext('2d').drawImage(canvas, p.x - r, p.y - r, r * 2, r * 2, 0, 0, r * 2, r * 2);
+    P.boxBlur(patch, Math.max(2, r >> 3));
+    const blurD = patch.getContext('2d').getImageData(0, 0, r * 2, r * 2).data;
+    const x0 = clamp(p.x - r, 0, canvas.width), y0 = clamp(p.y - r, 0, canvas.height);
+    const w = clamp(p.x + r, 0, canvas.width) - x0, h = clamp(p.y + r, 0, canvas.height) - y0;
+    if (w <= 0 || h <= 0) return;
+    const id = ctx.getImageData(x0, y0, w, h);
+    const d = id.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const dx = x + x0 - p.x, dy = y + y0 - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) / r;
+      if (dist > 1) continue;
+      const fall = (1 - dist * dist) * amt;
+      const i = (y * w + x) * 4;
+      const bi = (y * r * 2 + x) * 4;   // 注意 patch 宽高=r*2
+      for (let c = 0; c < 3; c++) {
+        // 只向"更亮"的方向修复：暗部提亮，亮部不动
+        const target = blurD[bi + c] * 0.55 + d[i + c] * 0.45 + 14;
+        if (target > d[i + c]) d[i + c] = clamp(d[i + c] + (target - d[i + c]) * fall, 0, 255);
+      }
+    }
+    ctx.putImageData(id, x0, y0);
+  };
+
+  // 增高：y0 以下纵向拉伸 k 倍（1.0~1.35），返回新 canvas
+  P.stretchBelow = function (canvas, y0, k) {
+    const w = canvas.width, h = canvas.height;
+    y0 = clamp(Math.round(y0), 0, h - 1);
+    k = clamp(k, 1, 1.35);
+    const legH = h - y0;
+    const newLegH = Math.round(legH * k);
+    const out = U.makeCanvas(w, y0 + newLegH);
+    const ctx = out.getContext('2d');
+    ctx.drawImage(canvas, 0, 0, w, y0, 0, 0, w, y0);                 // 上半身原样
+    ctx.drawImage(canvas, 0, y0, w, legH, 0, y0, w, newLegH);        // 腿拉伸
+    return out;
+  };
+
   /* ---- 液化（瘦脸/大眼/增高） ---- */
   // mode: 'push' | 'bulge'(放大) | 'pinch'(收缩)
   P.liquify = function (canvas, p, mode, dx, dy) {
