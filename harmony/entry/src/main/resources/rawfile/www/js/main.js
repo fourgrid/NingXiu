@@ -14,14 +14,14 @@
       ['crop', '✂️', '裁剪'], ['rotate', '🔃', '旋转'], ['resize', '📐', '尺寸'], ['idphoto', '🪪', '证件照'],
     ]},
     { id: 'deco', icon: '🖌️', name: '装饰', tools: [
-      ['text', '🔤', '文字'], ['sticker', '🌟', '贴纸'], ['doodle', '🖌️', '涂鸦'], ['mosaic', '🔲', '马赛克'], ['frame', '🖼️', '边框'],
+      ['text', '🔤', '文字'], ['sticker', '🌟', '贴纸'], ['doodle', '🖌️', '涂鸦'], ['mosaic', '🔲', '马赛克'], ['frame', '🖼️', '边框'], ['watermark', '©️', '水印'],
     ]},
     { id: 'ai', icon: '🤖', name: 'AI', tools: [
       ['ai-erase', '🧹', 'AI消除', 1], ['ai-cutout', '✂️', 'AI抠图', 1], ['ai-expand', '🖼️', 'AI扩图', 1],
       ['ai-draw', '🎨', 'AI绘画', 1], ['ai-portrait', '📸', 'AI写真', 1], ['ai-upscale', '🔍', '画质修复', 1],
     ]},
     { id: 'collage', icon: '🧩', name: '拼图', tools: [
-      ['collage', '🧩', '拼图'], ['template', '📰', '海报模板'],
+      ['collage', '🧩', '拼图'], ['template', '📰', '海报模板'], ['batch', '📦', '批量处理'],
     ]},
   ];
 

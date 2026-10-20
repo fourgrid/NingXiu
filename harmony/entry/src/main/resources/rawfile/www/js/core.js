@@ -10,6 +10,30 @@
   C.ctx = ctx;
   C.filterSupported = (typeof ctx.filter === 'string');
 
+  // 视图缩放/平移（仅影响显示，不影响像素；坐标换算已含 transform）
+  C.view = { s: 1, x: 0, y: 0 };
+  C.applyView = function () {
+    const v = C.view;
+    canvas.style.transformOrigin = '0 0';
+    canvas.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.s})`;
+    const lbl = U.$('#zoomLabel');
+    if (lbl) lbl.textContent = Math.round(v.s * 100) + '%';
+  };
+  C.resetView = function () {
+    C.view = { s: 1, x: 0, y: 0 };
+    C.applyView();
+  };
+  C.zoomBy = function (factor) {
+    const v = C.view;
+    v.s = U.clamp(v.s * factor, 0.2, 12);   // 以画布原点为锚缩放，配合平移使用
+    C.applyView();
+  };
+  // 平移（拖拽空白区或用两指/平移模式）
+  C.panBy = function (dx, dy) {
+    C.view.x += dx; C.view.y += dy;
+    C.applyView();
+  };
+
   C.state = {
     base: null,        // 已提交的像素（offscreen canvas）
     orig: null,        // 原图（用于"原图"重置）
@@ -52,6 +76,14 @@
     japan:  { name: '日系',   css: 'brightness(1.1) contrast(0.92) saturate(0.85) sepia(0.1)' },
     drama:  { name: '电影感', css: 'contrast(1.18) saturate(1.1) brightness(0.96) sepia(0.12)', vig: 0.3 },
     vivid:  { name: '鲜艳',   css: 'saturate(1.6) contrast(1.1)' },
+    sunset: { name: '落日',   css: 'sepia(0.4) saturate(1.5) hue-rotate(-15deg) brightness(1.03)' },
+    milk:   { name: '奶茶',   css: 'sepia(0.25) brightness(1.09) contrast(0.9) saturate(0.95)' },
+    mist:   { name: '雾灰',   css: 'contrast(0.8) brightness(1.1) saturate(0.55)' },
+    verdant:{ name: '青翠',   css: 'saturate(1.25) brightness(1.04)', tint: ['#7CB342', 0.13] },
+    matcha: { name: '抹茶',   css: 'saturate(0.9) brightness(1.05)', tint: ['#8FAE6B', 0.16] },
+    lavend: { name: '紫夜',   css: 'brightness(0.95) saturate(1.1) contrast(1.05)', tint: ['#7C4DFF', 0.15] },
+    softlit:{ name: '柔光',   css: 'brightness(1.06) contrast(0.85) saturate(1.05) blur(0.4px)' },
+    ink:    { name: '墨彩',   css: 'grayscale(0.85) contrast(1.32) brightness(1.02)' },
   };
 
   /* ---------------- 载入 / 设置图片 ---------------- */
@@ -67,6 +99,7 @@
     C.state.adjust = C.defaultAdjust();
     C.state.hsl = C.defaultHSL();
     C.state.filterName = 'none';
+    C.resetView();
     C.state.history = [];
     C.state.hIndex = -1;
     C.pushHistory();
@@ -109,6 +142,15 @@
       c.getContext('2d').drawImage(img, 0, 0);
       s.base = c;
       s.overlays = JSON.parse(h.overlays);
+      // 图片贴纸：从 dataURL 重建 Image
+      for (const o of s.overlays) {
+        if (o.type === 'image' && o.src && !o.img) {
+          const im = new Image();
+          im.onload = () => C.render();
+          im.src = o.src;
+          o.img = im;
+        }
+      }
       s.adjust = JSON.parse(h.adjust);
       s.hsl = JSON.parse(h.hsl);
       s.filterName = h.filterName;
@@ -212,11 +254,21 @@
       c.font = `${o.bold ? 'bold ' : ''}${o.italic ? 'italic ' : ''}${o.size}px ${o.font || '"PingFang SC", sans-serif'}`;
       if (o.shadow) { c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = o.size / 8; c.shadowOffsetY = 2; }
       if (o.stroke) { c.lineWidth = Math.max(2, o.size / 10); c.strokeStyle = o.strokeColor || '#fff'; c.strokeText(o.text, 0, 0); }
-      c.fillStyle = o.color;
+      if (o.gradient && o.gradient.length >= 2) {
+        const w = o.width || o.size * o.text.length * 0.62;
+        const g = c.createLinearGradient(-w / 2, -o.size / 2, w / 2, o.size / 2);
+        o.gradient.forEach((col, i) => g.addColorStop(i / (o.gradient.length - 1), col));
+        c.fillStyle = g;
+      } else {
+        c.fillStyle = o.color;
+      }
       c.fillText(o.text, 0, 0);
     } else if (o.type === 'sticker') {
       c.font = `${o.size}px "Apple Color Emoji", sans-serif`;
       c.fillText(o.emoji, 0, 0);
+    } else if (o.type === 'image' && o.img) {
+      const w = o.size, h = o.size * (o.img.height / o.img.width);
+      c.drawImage(o.img, -w / 2, -h / 2, w, h);
     }
     c.restore();
     if (selected) {
@@ -231,6 +283,10 @@
 
   C.overlayHalfSize = function (o) {
     if (o.type === 'sticker') return { hw: o.size / 2 + 6, hh: o.size / 2 + 6 };
+    if (o.type === 'image' && o.img) {
+      const h = o.size * (o.img.height / o.img.width);
+      return { hw: o.size / 2 + 6, hh: h / 2 + 6 };
+    }
     const w = (o.width || o.size * Math.max(1, o.text.length) * 0.62);
     return { hw: w / 2 + 6, hh: o.size / 2 + 6 };
   };
@@ -333,10 +389,60 @@
     };
   };
 
+  /* ---- 缩放/平移交互 ---- */
+  const stageEl = U.$('#stage');
+  // 滚轮（触控板双指）缩放；Alt+滚轮也缩放
+  stageEl.addEventListener('wheel', (e) => {
+    if (!C.state.base) return;
+    e.preventDefault();
+    const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    C.zoomBy(f);
+  }, { passive: false });
+
+  // 双指捏合（触屏）：第二根手指落下时结束当前笔画进入捏合
+  const touches = new Map();
+  let pinchStart = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) {
+      // 结束工具笔画
+      const t = NX.tools[C.state.tool];
+      if (dragging && t && t.onUp) { try { t.onUp(C.toImageCoords(e), e); } catch (_) {} }
+      const pts = [...touches.values()];
+      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      pinchStart = { d, s: C.view.s };
+    }
+  }, true);
+  canvas.addEventListener('pointermove', (e) => {
+    if (!touches.has(e.pointerId)) return;
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2 && pinchStart) {
+      const pts = [...touches.values()];
+      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      C.view.s = U.clamp(pinchStart.s * d / Math.max(1, pinchStart.d), 0.2, 12);
+      C.applyView();
+      e.stopPropagation();
+    }
+  }, true);
+  const clearTouch = (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinchStart = null; };
+  canvas.addEventListener('pointerup', clearTouch, true);
+  canvas.addEventListener('pointercancel', clearTouch, true);
+
+  // 缩放控件（悬浮于画布右下）
+  const zoomBar = document.createElement('div');
+  zoomBar.id = 'zoomBar';
+  zoomBar.innerHTML = '<button id="zoomOut">−</button><button id="zoomLabel">100%</button><button id="zoomIn">＋</button>';
+  stageEl.appendChild(zoomBar);
+  U.$('#zoomOut').addEventListener('click', () => C.zoomBy(1 / 1.25));
+  U.$('#zoomIn').addEventListener('click', () => C.zoomBy(1.25));
+  U.$('#zoomLabel').addEventListener('click', () => C.resetView());
+
   let dragging = false;
   function dispatch(name, e) {
     const t = NX.tools[C.state.tool];
     if (!t || !t[name] || !C.state.base || C.state.busy) return;
+    if (touches.size >= 2) return;   // 捏合中
     e.preventDefault();
     t[name](C.toImageCoords(e), e);
   }

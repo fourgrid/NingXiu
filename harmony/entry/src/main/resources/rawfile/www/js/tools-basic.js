@@ -25,6 +25,10 @@
         mint: 'linear-gradient(135deg,#84fab0,#8fd3f4)', dream: 'linear-gradient(135deg,#a18cd1,#fbc2eb)',
         japan: 'linear-gradient(135deg,#ffecd2,#fcb69f)', drama: 'linear-gradient(135deg,#232526,#414345)',
         vivid: 'linear-gradient(135deg,#f093fb,#f5576c)',
+        sunset: 'linear-gradient(135deg,#ff9966,#ff5e62)', milk: 'linear-gradient(135deg,#e0c3a5,#c8a882)',
+        mist: 'linear-gradient(135deg,#cfd9df,#e2ebf0)', verdant: 'linear-gradient(135deg,#7CB342,#33691E)',
+        matcha: 'linear-gradient(135deg,#a8c69f,#6b8f5e)', lavend: 'linear-gradient(135deg,#7C4DFF,#311B92)',
+        softlit: 'linear-gradient(135deg,#fff3e0,#ffe0ec)', ink: 'linear-gradient(135deg,#666,#111)',
       };
       return g[k] || '#ccc';
     },

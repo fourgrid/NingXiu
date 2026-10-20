@@ -35,18 +35,23 @@
     leave() {},
   };
 
-  /* ============ 涂鸦 ============ */
+  /* ============ 涂鸦（自由笔 + 形状） ============ */
   NX.tools.doodle = {
     color: '#FF3B30', width: 8, painting: false, last: null,
+    shape: 'free', start: null, cur: null,
+    shapes: [['free', '✏️ 自由'], ['line', '➖ 直线'], ['arrow', '➡️ 箭头'], ['rect', '⬜ 矩形'], ['ellipse', '⭕ 圆形']],
     panel() {
       return `<h3>🖌️ 涂鸦</h3>
+        <div class="chip-grid" style="grid-template-columns:repeat(5,1fr)" id="ddShapes">
+          ${this.shapes.map(([k, n]) => `<button class="chip ${this.shape === k ? 'active' : ''}" data-sh="${k}">${n}</button>`).join('')}
+        </div>
         <div class="row"><label>颜色</label><input type="color" id="ddColor" value="${this.color}">
           <div class="swatch-row" style="margin:0">
             ${['#FF3B30','#FF9500','#FFD93D','#4CD964','#007AFF','#AF52DE','#000000','#FFFFFF'].map(c =>
               `<div class="swatch" data-c="${c}" style="background:${c};width:22px;height:22px"></div>`).join('')}
           </div></div>
         ${U.sliderRow('ddW', '粗细', 2, 60, this.width)}
-        <p class="hint">自由涂画；画错用顶部"撤销"。</p>`;
+        <p class="hint">自由笔直接涂画；形状按住拖动、松手成型。画错用顶部"撤销"。</p>`;
     },
     bind() {
       U.$('#ddColor').addEventListener('input', e => this.color = e.target.value);
@@ -54,10 +59,51 @@
         this.color = s.dataset.c; U.$('#ddColor').value = s.dataset.c;
       }));
       U.bindSlider('ddW', v => this.width = v);
+      U.$$('#ddShapes [data-sh]').forEach(b => b.addEventListener('click', () => {
+        this.shape = b.dataset.sh;
+        U.$$('#ddShapes [data-sh]').forEach(x => x.classList.toggle('active', x === b));
+      }));
     },
-    onDown(p) { C.commitAdjustments(); this.painting = true; this.last = p; this.dot(p); },
+    onDown(p) {
+      C.commitAdjustments();
+      this.painting = true; this.last = p;
+      if (this.shape === 'free') this.dot(p);
+      else { this.start = p; this.cur = p; }
+    },
+    drawShape(ctx, a, b, preview) {
+      ctx.save();
+      ctx.strokeStyle = this.color; ctx.fillStyle = this.color;
+      ctx.lineWidth = this.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (preview) ctx.setLineDash([8, 5]);
+      if (this.shape === 'line' || this.shape === 'arrow') {
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        if (this.shape === 'arrow') {
+          const ang = Math.atan2(b.y - a.y, b.x - a.x);
+          const hl = Math.max(12, this.width * 2.5);
+          ctx.beginPath();
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(b.x - hl * Math.cos(ang - 0.45), b.y - hl * Math.sin(ang - 0.45));
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(b.x - hl * Math.cos(ang + 0.45), b.y - hl * Math.sin(ang + 0.45));
+          ctx.stroke();
+        }
+      } else if (this.shape === 'rect') {
+        ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+      } else if (this.shape === 'ellipse') {
+        ctx.beginPath();
+        ctx.ellipse((a.x + b.x) / 2, (a.y + b.y) / 2, Math.abs(b.x - a.x) / 2, Math.abs(b.y - a.y) / 2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    },
+    draw(ctx) {
+      if (this.shape !== 'free' && this.painting && this.start && this.cur) {
+        this.drawShape(ctx, this.start, this.cur, true);
+      }
+    },
     onMove(p) {
       if (!this.painting) return;
+      if (this.shape !== 'free') { this.cur = p; C.render(); return; }
       const ctx = S().base.getContext('2d');
       ctx.save();
       ctx.strokeStyle = this.color; ctx.lineWidth = this.width;
@@ -67,7 +113,15 @@
       this.last = p;
       C.render();
     },
-    onUp() { if (this.painting) { this.painting = false; C.pushHistory(); } },
+    onUp(p) {
+      if (!this.painting) return;
+      this.painting = false;
+      if (this.shape !== 'free' && this.start && p) {
+        this.drawShape(S().base.getContext('2d'), this.start, p, false);
+        this.start = null; this.cur = null;
+      }
+      C.pushHistory(); C.render();
+    },
     dot(p) {
       const ctx = S().base.getContext('2d');
       ctx.save(); ctx.fillStyle = this.color;
@@ -80,6 +134,10 @@
   /* ============ 文字 ============ */
   NX.tools.text = {
     opts: { text: '柠檬你好', size: 48, color: '#FFFFFF', font: '"PingFang SC", sans-serif', bold: true, italic: false, stroke: true, strokeColor: '#333333', shadow: true },
+    gradients: [
+      ['', '纯色'], ['#FFD93D,#FF5A7E', '柠檬红'], ['#56CCF2,#2F80ED', '海洋'],
+      ['#A8E063,#56AB2F', '青草'], ['#F7971E,#FFD200', '金橙'], ['#C471ED,#F64F59', '紫粉'],
+    ],
     selected: -1, dragOff: null,
     panel() {
       const sel = S().overlays[this.selected];
@@ -100,13 +158,21 @@
           <label><input type="checkbox" id="txStroke" ${o.stroke ? 'checked' : ''}> 描边</label>
           <label><input type="checkbox" id="txShadow" ${o.shadow ? 'checked' : ''}> 阴影</label>
         </div>
+        <div class="chip-grid" style="grid-template-columns:repeat(6,1fr)" id="txGrad">
+          ${this.gradients.map(([g, n]) => {
+            const cur = (sel && sel.gradient) ? sel.gradient.join(',') : (this.pendingGrad || '');
+            return `<button class="chip ${cur === g ? 'active' : ''}" data-g="${g}" title="${n}" style="${g ? `background:linear-gradient(135deg,${g.split(',')[0]},${g.split(',')[1]});color:#fff` : ''}">${n}</button>`;
+          }).join('')}
+        </div>
         <button class="btn block primary" id="txAdd">➕ ${sel ? '更新选中文字' : '点击画面放置'}</button>
         <button class="btn block warn" id="txDel" ${this.selected < 0 ? 'disabled' : ''}>🗑 删除选中</button>
         <p class="hint">点击画面放置；拖动移动；双击文字重新编辑。</p>`;
     },
     readPanel() {
+      const grad = this.pendingGrad;
       return {
         type: 'text',
+        gradient: grad ? grad.split(',') : null,
         text: U.$('#txText').value || '文字',
         size: parseInt(U.$('#txSize').value),
         color: U.$('#txColor').value,
@@ -120,6 +186,16 @@
     },
     bind() {
       U.bindSlider('txSize', () => {});
+      U.$$('#txGrad [data-g]').forEach(b => b.addEventListener('click', () => {
+        this.pendingGrad = b.dataset.g || null;
+        U.$$('#txGrad [data-g]').forEach(x => x.classList.toggle('active', x === b));
+        // 选中文字时实时改渐变
+        if (this.selected >= 0 && S().overlays[this.selected]) {
+          const o = S().overlays[this.selected];
+          o.gradient = this.pendingGrad ? this.pendingGrad.split(',') : null;
+          C.render();
+        }
+      }));
       U.$('#txAdd').addEventListener('click', () => {
         const o = this.readPanel();
         if (this.selected >= 0 && S().overlays[this.selected]) {
@@ -190,6 +266,8 @@
       const i = this.hitTest(p);
       if (i >= 0 && S().overlays[i].type === 'text') {
         this.selected = i;
+        const o = S().overlays[i];
+        this.pendingGrad = o.gradient ? o.gradient.join(',') : null;
         NX.main.refreshPanel();
       }
     },
@@ -210,15 +288,39 @@
       return `<h3>🌟 贴纸</h3>
         <div class="emoji-grid">${this.emojis.map(e =>
           `<button class="${e === this.emoji ? 'active' : ''}" data-e="${e}">${e}</button>`).join('')}</div>
+        <button class="btn block" id="stUpload">🖼 上传图片当贴纸</button>
         ${U.sliderRow('stSize', '大小', 24, 300, this.size)}
         <button class="btn block warn" id="stDel" ${this.selected < 0 ? 'disabled' : ''}>🗑 删除选中</button>
         <p class="hint">选 emoji → 点画面放置；拖动移动；滑杆调整"下一个"大小，也可实时改选中的。</p>`;
     },
+    pendingImg: null,
     bind() {
       U.$$('#panel .emoji-grid button').forEach(b => b.addEventListener('click', () => {
         this.emoji = b.dataset.e;
+        this.pendingImg = null;
         U.$$('#panel .emoji-grid button').forEach(x => x.classList.toggle('active', x === b));
       }));
+      U.$('#stUpload').addEventListener('click', () => {
+        const inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = 'image/*';
+        inp.onchange = async (e) => {
+          try {
+            const img = await U.loadImageFromFile(e.target.files[0]);
+            // 限制贴纸分辨率
+            const s = Math.min(1, 800 / Math.max(img.width, img.height));
+            const c = U.makeCanvas(img.width * s, img.height * s);
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            const im = new Image();
+            im.onload = () => {
+              this.pendingImg = { img: im, src: c.toDataURL('image/png') };
+              U.$$('#panel .emoji-grid button').forEach(x => x.classList.remove('active'));
+              U.toast('图片贴纸已就绪，点画面放置');
+            };
+            im.src = c.toDataURL('image/png');
+          } catch (err) { U.toast('图片加载失败'); }
+        };
+        inp.click();
+      });
       U.bindSlider('stSize', v => {
         this.size = v;
         if (this.selected >= 0 && S().overlays[this.selected]) {
@@ -236,6 +338,11 @@
         this.selected = i;
         const o = S().overlays[i];
         this.dragOff = { dx: p.x - o.x, dy: p.y - o.y };
+        C.render(); NX.main.refreshPanel();
+      } else if (this.pendingImg) {
+        S().overlays.push({ type: 'image', img: this.pendingImg.img, src: this.pendingImg.src,
+          size: this.size * 2, x: p.x, y: p.y });
+        this.selected = S().overlays.length - 1;
         C.render(); NX.main.refreshPanel();
       } else {
         S().overlays.push({ type: 'sticker', emoji: this.emoji, size: this.size, x: p.x, y: p.y });
@@ -365,10 +472,19 @@
         ${U.sliderRow('btWhiten', '美白', 0, 100, this.whiten)}
         <button class="btn block primary" id="btOne">✨ 一键美颜</button>
         <button class="btn block" id="btApply">✅ 应用当前参数</button>
-        <h4>局部</h4>
-        <button class="btn block" id="btEye">👁 亮眼（点按眼睛）</button>
-        <p class="hint">磨皮/美白全图生效；亮眼为点按局部生效。瘦脸大眼请用左侧「液化」。</p>`;
+        <h4>局部精修（点按生效）</h4>
+        <div class="chip-grid">
+          <button class="chip" data-lm="eye">👁 亮眼</button>
+          <button class="chip" data-lm="teeth">🦷 白牙</button>
+          <button class="chip" data-lm="eyecircle">🌚 祛黑眼圈</button>
+        </div>
+        <h4>增高</h4>
+        ${U.sliderRow('btStretch', '幅度', 103, 135, 112)}
+        <button class="btn block" id="btStretchGo">📏 点画面选腰线后点这里</button>
+        <p class="hint">局部精修：选功能后点按对应部位。增高：先点一下画面选腰线位置，再点按钮，腰线以下拉长。</p>`;
     },
+    localMode: '',   // eye | teeth | eyecircle
+    stretchY: null,
     eyeMode: false,
     bind() {
       U.bindSlider('btSmooth', v => this.smooth = v);
@@ -394,19 +510,43 @@
           U.toast('已应用');
         }, 30);
       });
-      U.$('#btEye').addEventListener('click', () => {
-        this.eyeMode = !this.eyeMode;
-        U.$('#btEye').textContent = this.eyeMode ? '👁 亮眼已开启（点眼睛）' : '👁 亮眼（点按眼睛）';
+      U.$$('#panel [data-lm]').forEach(b => b.addEventListener('click', () => {
+        this.localMode = this.localMode === b.dataset.lm ? '' : b.dataset.lm;
+        U.$$('#panel [data-lm]').forEach(x => x.classList.toggle('active', x.dataset.lm === this.localMode));
+        if (this.localMode) U.toast('点按画面中的部位生效');
+      }));
+      U.$('#btStretchGo').addEventListener('click', () => {
+        if (this.stretchY == null) { U.toast('先在画面上点一下选腰线'); return; }
+        C.flattenOverlays();
+        const k = parseInt(U.$('#btStretch').value) / 100;
+        S().base = P.stretchBelow(S().base, this.stretchY, k);
+        this.stretchY = null;
+        C.pushHistory(); C.render();
+        U.toast('增高完成 📏');
       });
     },
     onDown(p) {
-      if (this.eyeMode) {
-        C.flattenOverlays();
-        P.brightenEyes(S().base, { x: p.x, y: p.y, r: S().base.width * 0.05 }, 0.8);
-        C.pushHistory(); C.render();
+      // 无局部模式时记录腰线
+      if (!this.localMode) { this.stretchY = p.y; U.toast('腰线已选，点「增高」按钮生效'); C.render(); return; }
+      C.flattenOverlays();
+      const b = S().base;
+      const r = b.width * 0.05;
+      if (this.localMode === 'eye') P.brightenEyes(b, { x: p.x, y: p.y, r }, 0.8);
+      else if (this.localMode === 'teeth') P.whitenTeeth(b, { x: p.x, y: p.y, r: r * 0.8 }, 0.9);
+      else if (this.localMode === 'eyecircle') P.removeEyeCircle(b, { x: p.x, y: p.y, r: r * 1.2 }, 0.85);
+      C.pushHistory(); C.render();
+    },
+    draw(ctx) {
+      // 腰线指示
+      if (this.stretchY != null && !this.localMode) {
+        const b = S().base;
+        ctx.save();
+        ctx.strokeStyle = '#FF5A7E'; ctx.setLineDash([10, 6]); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, this.stretchY); ctx.lineTo(b.width, this.stretchY); ctx.stroke();
+        ctx.restore();
       }
     },
-    leave() { this.eyeMode = false; },
+    leave() { this.localMode = ''; this.stretchY = null; },
   };
 
   /* ============ 液化（瘦脸/大眼/增高） VIP ============ */
