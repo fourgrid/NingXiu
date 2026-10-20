@@ -54,6 +54,17 @@
   <div id="settingsBody"></div>
 </div>
 
+<!-- 相机页（美图式全屏相机） -->
+<div id="cameraPage" hidden>
+  <video id="camVideo" autoplay playsinline muted></video>
+  <div class="cam-styles" id="camStyles"></div>
+  <div class="cam-controls">
+    <button class="cam-side-btn" id="camClose"><span class="ic">✕</span>关闭</button>
+    <button id="camShutter">🍋</button>
+    <button class="cam-side-btn" id="camFlip"><span class="ic">🔄</span>翻转</button>
+  </div>
+</div>
+
 <input type="file" id="collageFiles" accept="image/*" multiple hidden>
 <script src="js/util.js"></script>
 <script src="js/pixels.js"></script>
@@ -64,6 +75,7 @@
 <script src="js/tools-batch.js"></script>
 <script src="js/ai-config.js"></script>
 <script src="js/ai-features.js"></script>
+<script src="js/camera.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

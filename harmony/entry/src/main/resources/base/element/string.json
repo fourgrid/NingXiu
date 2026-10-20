@@ -2,6 +2,7 @@
   "string": [
     { "name": "app_name", "value": "柠檬秀秀" },
     { "name": "module_desc", "value": "柠檬秀秀 - 柠檬味图片编辑器" },
-    { "name": "EntryAbility_desc", "value": "柠檬秀秀主入口" }
+    { "name": "EntryAbility_desc", "value": "柠檬秀秀主入口" },
+    { "name": "camera_reason", "value": "用于拍照后直接美化编辑" }
   ]
 }

@@ -28,10 +28,14 @@
   let curCat = 'beautify';
 
   M.buildNav = function () {
-    U.$('#tabbar').innerHTML = CATEGORIES.map(c =>
-      `<button class="tab-btn ${c.id === curCat ? 'active' : ''}" data-cat="${c.id}">${c.icon}<span>${c.name}</span></button>`
-    ).join('');
+    // 美图式布局：tab 中间插入凸起相机按钮
+    const half = Math.ceil(CATEGORIES.length / 2);
+    const mkBtn = c => `<button class="tab-btn ${c.id === curCat ? 'active' : ''}" data-cat="${c.id}">${c.icon}<span>${c.name}</span></button>`;
+    const camBtn = `<button class="tab-cam" id="tabCam" title="拍照"><span class="cam-disc">📷</span></button>`;
+    U.$('#tabbar').innerHTML =
+      CATEGORIES.slice(0, half).map(mkBtn).join('') + camBtn + CATEGORIES.slice(half).map(mkBtn).join('');
     U.$$('#tabbar .tab-btn').forEach(b => b.addEventListener('click', () => M.switchTab(b.dataset.cat)));
+    U.$('#tabCam').addEventListener('click', () => NX.camera.open());
   };
 
   M.switchTab = function (catId) {

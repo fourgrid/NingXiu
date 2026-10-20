@@ -13,6 +13,8 @@ import re, sys
 raw = open(sys.argv[1]).read()
 marks = re.findall(r'class="TRES">([^<]*)', raw)
 fails = [m for m in marks if m.startswith('FAIL')]
+skips = [m for m in marks if 'SKIP' in m]
+if skips: print('跳过(环境限制):', len(skips))
 print('\n'.join(marks))
 print()
 p = sum(1 for m in marks if m.startswith('PASS'))

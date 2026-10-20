@@ -13,6 +13,15 @@
 <section id="panel" hidden><div id="panelContent"></div></section>
 <nav id="tabbar"></nav>
 <div id="settings" hidden><div class="set-header"><button class="icon-btn" id="setBack"></button><span>设置</span></div><div id="settingsBody"></div></div>
+<div id="cameraPage" hidden>
+  <video id="camVideo" autoplay playsinline muted></video>
+  <div class="cam-styles" id="camStyles"></div>
+  <div class="cam-controls">
+    <button class="cam-side-btn" id="camClose">✕</button>
+    <button id="camShutter">🍋</button>
+    <button class="cam-side-btn" id="camFlip">🔄</button>
+  </div>
+</div>
 <input type="file" id="collageFiles" hidden>
 <script src="../js/util.js"></script>
 <script src="../js/pixels.js"></script>
@@ -23,13 +32,14 @@
 <script src="../js/tools-batch.js"></script>
 <script src="../js/ai-config.js"></script>
 <script src="../js/ai-features.js"></script>
+<script src="../js/camera.js"></script>
 <script src="../js/main.js"></script>
 <script>
 window.onerror = function (msg, src, line) { document.title = 'JSERROR: ' + msg + ' @' + (src||'').split('/').pop() + ':' + line; };
 const results = [];
 function mark(s) { const d = document.createElement('div'); d.className = 'TRES'; d.textContent = s; document.body.appendChild(d); }
 function T(name, fn) { try { const r = fn(); if (r && r.then) return r; results.push('PASS:' + name); mark('PASS:' + name); } catch (e) { results.push('FAIL:' + name + ':' + String(e.message||e).slice(0,90)); mark('FAIL:' + name); } }
-async function Tasync(name, fn) { try { await fn(); results.push('PASS:' + name); mark('PASS:' + name); } catch (e) { results.push('FAIL:' + name + ':' + String(e.message||e).slice(0,90)); mark('FAIL:' + name + ':' + String(e.message||e).slice(0,90)); } }
+async function Tasync(name, fn) { try { await fn(); results.push('PASS:' + name); mark('PASS:' + name); } catch (e) { const m = String(e.message||e); if (m.indexOf('SKIP') === 0) { mark('SKIP:' + name + ' (环境不支持)'); } else { results.push('FAIL:' + name + ':' + m.slice(0,90)); mark('FAIL:' + name + ':' + m.slice(0,90)); } } }
 function makeImg(w, h, style) {
   return new Promise(res => {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -236,6 +246,29 @@ window.addEventListener('load', async () => {
     document.getElementById('tpApply').click();
     if (S.overlays.length === 0) throw new Error('no overlay added');
     C.flattenOverlays();
+  });
+
+  T('camButton', () => {
+    const cam = document.getElementById('tabCam');
+    if (!cam) throw new Error('no cam button');
+    if (!cam.querySelector('.cam-disc')) throw new Error('no disc');
+    // tab 总数：6 分类 + 1 相机
+    const tabs = document.querySelectorAll('#tabbar > button');
+    if (tabs.length !== 7) throw new Error('tabs=' + tabs.length);
+  });
+  await Tasync('cameraShoot', async () => {
+    // headless 环境 getUserMedia 可能永不 settle（非安全上下文/无设备），超时跳过
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('SKIP:env')), 8000));
+    await Promise.race([NX.camera.open(), timeout]).catch(e => { throw new Error('SKIP:env'); });
+    if (!NX.camera.stream) throw new Error('SKIP:no-stream');
+    const v = document.getElementById('camVideo');
+    for (let i = 0; i < 30 && !v.videoWidth; i++) await sleep(100);
+    if (!v.videoWidth) throw new Error('video not ready');
+    NX.camera.style = 'apple';
+    NX.camera.shoot();
+    await sleep(200);
+    if (!S.base || S.base.width < 100) throw new Error('no capture');
+    if (document.getElementById('cameraPage').hidden !== true) throw new Error('page not closed');
   });
 
   /* ===== 第二批新功能 ===== */

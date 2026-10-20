@@ -17,6 +17,16 @@ struct Index {
         .imageAccess(true)
         .mixedMode(MixedMode.All)        // 允许本地页面请求 https AI 接口
         .overScrollMode(OverScrollMode.NEVER)
+        .onPermissionRequest((event: PermissionRequest) => {
+          // H5 getUserMedia 摄像头权限 → 交给系统授权
+          const perms = event.request.getAccessibleResource();
+          const grants: Array<string> = [];
+          perms.forEach((p: string) => {
+            if (p === 'TYPE_VIDEO_CAPTURE' || p === 'TYPE_AUDIO_CAPTURE') grants.push(p);
+          });
+          if (grants.length > 0) event.request.grant(grants);
+          else event.request.deny();
+        })
         .onShowFileSelector((event: OnShowFileSelectorEvent) => {
           // H5 的 <input type="file"> → 系统文件选择器
           const options = new picker.DocumentSelectOptions();
