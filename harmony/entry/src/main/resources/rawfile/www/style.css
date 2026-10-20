@@ -29,7 +29,7 @@ body {
   background: var(--paper); border-bottom: 1px solid var(--line);
   z-index: 10;
 }
-.logo { font-size: 17px; font-weight: 800; }
+.logo { font-size: 17px; font-weight: 800; white-space: nowrap; }
 .top-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .icon-btn {
   border: none; background: var(--soft); border-radius: 10px;
