@@ -51,7 +51,7 @@
   C.defaultAdjust = () => ({
     brightness: 0, contrast: 0, saturate: 0, temp: 0, hue: 0,
     sharpen: 0, clarity: 0, noise: 0, vignette: 0, fade: 0,
-    highlight: 0, shadow: 0, tint: 0,
+    highlight: 0, shadow: 0, tint: 0, dehaze: 0, glow: 0, hdr: 0,
   });
   C.defaultHSL = () => ({ red: [0,0,0], orange: [0,0,0], yellow: [0,0,0], green: [0,0,0],
     cyan: [0,0,0], blue: [0,0,0], purple: [0,0,0], magenta: [0,0,0] });

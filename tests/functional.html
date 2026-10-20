@@ -30,6 +30,7 @@
 <script src="../js/tools-draw.js"></script>
 <script src="../js/tools-collage.js"></script>
 <script src="../js/tools-batch.js"></script>
+<script src="../js/tools-pro.js"></script>
 <script src="../js/ai-config.js"></script>
 <script src="../js/ai-features.js"></script>
 <script src="../js/camera.js"></script>
@@ -387,11 +388,61 @@ window.addEventListener('load', async () => {
     if (Math.abs(q[0]-q[1]) > 3) throw new Error('full broken: rgb=' + [q[0], q[1], q[2]].join(','));
   });
 
+  T('curvesEdit', () => {
+    NX.main.switchTool('curves');
+    const t = NX.tools.curves;
+    const cv = document.getElementById('cvCanvas');
+    if (!cv) throw new Error('no editor canvas');
+    // 直接操作数据 + 应用（指针交互依赖布局坐标，另测算法）
+    t.points.all = [[0, 0], [128, 168], [255, 255]];   // 提亮中调
+    t.apply();
+    if (!t.isIdentity()) throw new Error('points not reset');
+  });
+  T('curveLUT', () => {
+    const lut = NX.pixels.buildCurveLUT([[0, 0], [128, 200], [255, 255]]);
+    if (lut[0] !== 0 || lut[255] !== 255) throw new Error('endpoints broken');
+    if (Math.abs(lut[128] - 200) > 12) throw new Error('mid off: ' + lut[128]);
+    // 单调性（本用例）
+    for (let i = 1; i < 256; i++) if (lut[i] < lut[i - 1]) throw new Error('not monotone at ' + i);
+  });
+  T('dehazeGlowHdr', () => {
+    NX.main.switchTool('adjust');
+    const before = px(60, 60).join(',');
+    Object.assign(S.adjust, { dehaze: 60, glow: 40, hdr: 50 });
+    C.commitAdjustments();
+    if (px(60, 60).join(',') === before) throw new Error('no effect');
+  });
+  T('correctRotate', () => {
+    NX.main.switchTool('correct');
+    const d0 = dims();
+    document.getElementById('crRot').value = '15';
+    document.getElementById('crApply').click();
+    if (dims() === d0) throw new Error('canvas not expanded');
+  });
+  T('correctKeystone', () => {
+    const d0 = dims();
+    document.getElementById('crVK').value = '30';
+    document.getElementById('crApply').click();
+    // keystone 保持画布尺寸但内容变形
+    if (dims() !== d0) throw new Error('keystone changed dims');
+  });
+  T('whiteBalance', () => {
+    C.setImage(img);   // 全新图（前面的校正把边缘填白了）
+    const gains = NX.pixels.whiteBalanceAt(S.base, 50, 50);
+    if (!gains || !gains.kr) throw new Error('no gains');
+    const before = px(50, 50).join(',');
+    NX.pixels.applyWB(S.base, gains);
+    if (px(50, 50).join(',') === before) throw new Error('wb no effect');
+  });
+
   /* ===== 撤销/重做/重置 ===== */
   T('undoRedo', () => {
+    // 先造两步明确的历史，再验证撤销重做
+    NX.pixels.whiten(S.base, 0.05); C.pushHistory();
+    NX.pixels.whiten(S.base, 0.05); C.pushHistory();
     const n = S.hIndex;
     C.undo(); C.undo();
-    if (S.hIndex !== n - 2) throw new Error('undo broken');
+    if (S.hIndex !== n - 2) throw new Error('undo broken hIndex=' + S.hIndex + ' n=' + n);
     C.redo();
     if (S.hIndex !== n - 1) throw new Error('redo broken');
   });
