@@ -224,3 +224,46 @@ body {
 #zoomBar button:hover { background: var(--soft); }
 #zoomLabel { font-size: 12px !important; color: var(--muted); }
 #canvas { will-change: transform; }
+
+/* 中央相机大按钮（美图式） */
+.tab-cam {
+  flex: 0 0 64px; min-width: 64px; border: none; background: none; cursor: pointer;
+  position: relative; align-self: stretch;
+}
+.tab-cam .cam-disc {
+  position: absolute; left: 50%; top: -18px; transform: translateX(-50%);
+  width: 58px; height: 58px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--lemon), var(--lemon-deep));
+  box-shadow: 0 4px 16px rgba(245,184,0,.45), inset 0 0 0 3px #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 26px;
+  transition: transform .12s;
+}
+.tab-cam:active .cam-disc { transform: translateX(-50%) scale(.92); }
+
+/* 相机全屏页 */
+#cameraPage {
+  position: fixed; inset: 0; background: #000; z-index: 60;
+  display: flex; flex-direction: column;
+}
+#cameraPage[hidden] { display: none; }
+#camVideo { flex: 1; width: 100%; object-fit: cover; background: #111; }
+.cam-styles {
+  display: flex; gap: 8px; padding: 10px 12px; overflow-x: auto; background: rgba(0,0,0,.65);
+  scrollbar-width: none;
+}
+.cam-styles::-webkit-scrollbar { display: none; }
+.cam-style {
+  flex: none; border: 1.5px solid rgba(255,255,255,.35); background: rgba(255,255,255,.08);
+  color: #fff; border-radius: 999px; padding: 6px 14px; font-size: 12px; cursor: pointer;
+}
+.cam-style.active { background: var(--lemon); color: var(--ink); border-color: var(--lemon); font-weight: 700; }
+.cam-controls {
+  display: flex; align-items: center; justify-content: space-around;
+  padding: 14px 20px calc(20px + env(safe-area-inset-bottom)); background: rgba(0,0,0,.65);
+}
+#camShutter {
+  width: 68px; height: 68px; border-radius: 50%;
+  border: 4px solid #fff; background: var(--lemon); cursor: pointer; font-size: 24px;
+}
+.cam-side-btn { border: none; background: none; color: #fff; font-size: 13px; cursor: pointer; width: 60px; }
+.cam-side-btn .ic { font-size: 24px; display: block; }

@@ -31,6 +31,7 @@
 <script src="../js/tools-collage.js"></script>
 <script src="../js/tools-batch.js"></script>
 <script src="../js/tools-pro.js"></script>
+<script src="../js/tools-mix.js"></script>
 <script src="../js/ai-config.js"></script>
 <script src="../js/ai-features.js"></script>
 <script src="../js/camera.js"></script>
@@ -433,6 +434,46 @@ window.addEventListener('load', async () => {
     const before = px(50, 50).join(',');
     NX.pixels.applyWB(S.base, gains);
     if (px(50, 50).join(',') === before) throw new Error('wb no effect');
+  });
+
+  T('doubleExp', async () => {});
+  await Tasync('doubleExpApply', async () => {
+    NX.main.switchTool('doubleexp');
+    const t = NX.tools.doubleexp;
+    t.second = img2; t.opacity = 80; t.mode = 'screen';
+    const before = meanLum();
+    t.apply();
+    if (meanLum() <= before) throw new Error('screen should brighten');
+  });
+  T('brushAdj', () => {
+    NX.main.switchTool('brushadj');
+    const t = NX.tools.brushadj;
+    t.param = 'brightness'; t.strength = 80;
+    const before = px(60, 60).slice(0, 3).join(',');
+    t.onDown({x: 60, y: 60}); t.onMove({x: 70, y: 60}); t.onUp();
+    if (px(60, 60).slice(0, 3).join(',') === before) throw new Error('no local adj');
+  });
+  T('idLayout', async () => {});
+  await Tasync('idLayoutGen', async () => {
+    NX.main.switchTool('idlayout');
+    t0 = dims();
+    document.getElementById('ilGo').click();
+    for (let i = 0; i < 40 && dims() === t0; i++) await sleep(50);
+    if (S.base.width !== 1500) throw new Error('paper width ' + S.base.width);
+  });
+  T('verticalText', () => {
+    NX.main.switchTool('text');
+    const t = NX.tools.text;
+    t.pendingGrad = null;
+    document.getElementById('txText').value = '竖排字';
+    document.getElementById('txVert').checked = true;
+    document.getElementById('txAdd').click();
+    t.onDown({x: 100, y: 100});
+    const o = S.overlays[S.overlays.length - 1];
+    if (!o.vertical) throw new Error('not vertical');
+    C.measureOverlay(o);
+    if (o.width > o.size * 1.5) throw new Error('width not vertical-ish');
+    C.flattenOverlays();
   });
 
   /* ===== 撤销/重做/重置 ===== */

@@ -157,6 +157,7 @@
           <label><input type="checkbox" id="txItalic" ${o.italic ? 'checked' : ''}> 斜体</label>
           <label><input type="checkbox" id="txStroke" ${o.stroke ? 'checked' : ''}> 描边</label>
           <label><input type="checkbox" id="txShadow" ${o.shadow ? 'checked' : ''}> 阴影</label>
+          <label><input type="checkbox" id="txVert" ${o.vertical ? 'checked' : ''}> 竖排</label>
         </div>
         <div class="chip-grid" style="grid-template-columns:repeat(6,1fr)" id="txGrad">
           ${this.gradients.map(([g, n]) => {
@@ -182,6 +183,7 @@
         stroke: U.$('#txStroke').checked,
         strokeColor: U.$('#txStrokeC').value,
         shadow: U.$('#txShadow').checked,
+        vertical: U.$('#txVert').checked,
       };
     },
     bind() {
@@ -212,7 +214,7 @@
         if (this.selected >= 0) { S().overlays.splice(this.selected, 1); this.selected = -1; C.render(); NX.main.refreshPanel(); }
       });
       // 面板编辑实时更新选中项
-      ['txText', 'txSize', 'txColor', 'txFont', 'txBold', 'txItalic', 'txStroke', 'txStrokeC', 'txShadow'].forEach(id => {
+      ['txText', 'txSize', 'txColor', 'txFont', 'txBold', 'txItalic', 'txStroke', 'txStrokeC', 'txShadow', 'txVert'].forEach(id => {
         const el = U.$('#' + id);
         el.addEventListener('input', () => {
           if (this.selected >= 0 && S().overlays[this.selected]) {

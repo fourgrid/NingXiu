@@ -60,6 +60,9 @@
   /* ---- 像素级调节（烘焙时执行） ---- */
   P.applyPixelAdjust = function (canvas, a, hsl) {
     const needHSL = hsl && Object.values(hsl).some(ch => ch.some(v => v !== 0));
+    if (a.dehaze) P.dehaze(canvas, a.dehaze / 100);
+    if (a.glow) P.glow(canvas, a.glow / 100);
+    if (a.hdr) P.hdr(canvas, a.hdr / 100);
     if (a.sharpen) P.sharpen(canvas, a.sharpen / 100);
     if (a.clarity) P.clarity(canvas, a.clarity / 100);
     if (a.highlight || a.shadow) P.highlightsShadows(canvas, a.highlight / 100, a.shadow / 100);
@@ -461,6 +464,180 @@
       }
     }
     ctx.putImageData(out, x0, y0);
+  };
+
+
+  /* ---- 曲线：单调三次插值生成 256 级 LUT ---- */
+  // points: [[x,y],...] x,y ∈ [0,255]，按 x 升序
+  P.buildCurveLUT = function (points) {
+    const pts = points.slice().sort((a, b) => a[0] - b[0]);
+    if (pts.length === 0) pts.push([0, 0], [255, 255]);
+    if (pts[0][0] > 0) pts.unshift([0, pts[0][1]]);
+    if (pts[pts.length - 1][0] < 255) pts.push([255, pts[pts.length - 1][1]]);
+    const lut = new Uint8ClampedArray(256);
+    for (let x = 0; x < 256; x++) {
+      // 找到区间
+      let i = 0;
+      while (i < pts.length - 2 && pts[i + 1][0] < x) i++;
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      const t = p2[0] === p1[0] ? 0 : (x - p1[0]) / (p2[0] - p1[0]);
+      // Catmull-Rom 样条
+      const y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t +
+        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t * t +
+        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t * t * t);
+      lut[x] = clamp(y, 0, 255);
+    }
+    return lut;
+  };
+
+  P.applyLUT = function (canvas, luts) {
+    // luts: {r, g, b, all} 任一可缺省
+    const ctx = canvas.getContext('2d');
+    const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = id.data;
+    const lr = luts.r || luts.all, lg = luts.g || luts.all, lb = luts.b || luts.all;
+    for (let i = 0; i < d.length; i += 4) {
+      if (lr) d[i] = lr[d[i]];
+      if (lg) d[i + 1] = lg[d[i + 1]];
+      if (lb) d[i + 2] = lb[d[i + 2]];
+    }
+    ctx.putImageData(id, 0, 0);
+  };
+
+  /* ---- 白平衡：以点选像素为中性灰 ---- */
+  P.whiteBalanceAt = function (canvas, x, y) {
+    const ctx = canvas.getContext('2d');
+    const s = Math.max(2, Math.round(canvas.width / 200));
+    const id = ctx.getImageData(clamp(x - s, 0, canvas.width - 1), clamp(y - s, 0, canvas.height - 1), s * 2, s * 2);
+    const d = id.data;
+    let r = 0, g = 0, b = 0, n = d.length / 4;
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+    r /= n; g /= n; b /= n;
+    const avg = (r + g + b) / 3;
+    if (avg < 8) return false;  // 太暗不校
+    return { kr: avg / r, kg: avg / g, kb: avg / b };
+  };
+
+  P.applyWB = function (canvas, gains) {
+    const ctx = canvas.getContext('2d');
+    const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i] = clamp(d[i] * gains.kr, 0, 255);
+      d[i + 1] = clamp(d[i + 1] * gains.kg, 0, 255);
+      d[i + 2] = clamp(d[i + 2] * gains.kb, 0, 255);
+    }
+    ctx.putImageData(id, 0, 0);
+  };
+
+  /* ---- 任意角度旋转（画布扩展） ---- */
+  P.rotateFree = function (canvas, deg) {
+    const rad = deg * Math.PI / 180;
+    const w = canvas.width, h = canvas.height;
+    const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+    const nw = Math.round(w * cos + h * sin), nh = Math.round(w * sin + h * cos);
+    const out = U.makeCanvas(nw, nh);
+    const ctx = out.getContext('2d');
+    ctx.translate(nw / 2, nh / 2);
+    ctx.rotate(rad);
+    ctx.drawImage(canvas, -w / 2, -h / 2);
+    return out;
+  };
+
+  /* ---- 透视校正（梯形畸变近似：逐行/逐列缩放） ---- */
+  // vk: 垂直透视 -1..1（正值顶部变窄→仰视校正）；hk: 水平同理
+  P.keystone = function (canvas, vk, hk) {
+    const w = canvas.width, h = canvas.height;
+    const out = U.makeCanvas(w, h);
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+    if (Math.abs(vk) > 0.001) {
+      // 垂直：每行宽度按 y 缩放
+      for (let y = 0; y < h; y++) {
+        const t = y / h - 0.5;             // -0.5..0.5
+        const scale = 1 + vk * t * 0.8;
+        const rw = w * scale;
+        ctx.drawImage(canvas, 0, y, w, 1, (w - rw) / 2, y, rw, 1);
+      }
+    }
+    if (Math.abs(hk) > 0.001) {
+      const src = Math.abs(vk) > 0.001 ? out : canvas;
+      const out2 = U.makeCanvas(w, h);
+      const ctx2 = out2.getContext('2d');
+      ctx2.fillStyle = '#fff'; ctx2.fillRect(0, 0, w, h);
+      for (let x = 0; x < w; x++) {
+        const t = x / w - 0.5;
+        const scale = 1 + hk * t * 0.8;
+        const rh = h * scale;
+        ctx2.drawImage(src, x, 0, 1, h, x, (h - rh) / 2, 1, rh);
+      }
+      return out2;
+    }
+    return out;
+  };
+
+  /* ---- 去雾（暗部提升对比 + 饱和） ---- */
+  P.dehaze = function (canvas, amt) {
+    amt = clamp(amt, 0, 1);
+    if (!amt) return;
+    const ctx = canvas.getContext('2d');
+    const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      // 雾感=低对比偏灰：把像素从 128 中轴拉开，暗部压一点、提饱和
+      const k = 1 + amt * 0.5;
+      const lumFactor = clamp((l - 30) / 200, 0.6, 1);   // 保护极暗部
+      for (let c = 0; c < 3; c++) {
+        let v = d[i + c];
+        v = (v - 128) * k * lumFactor + 128 - amt * 8;    // 增强对比+去灰
+        v = l + (v - l) * (1 + amt * 0.35);               // 提饱和
+        d[i + c] = clamp(v, 0, 255);
+      }
+    }
+    ctx.putImageData(id, 0, 0);
+  };
+
+  /* ---- 魅力光晕（亮部柔光扩散） ---- */
+  P.glow = function (canvas, amt) {
+    amt = clamp(amt, 0, 1);
+    if (!amt) return;
+    const blurred = U.cloneCanvas(canvas);
+    P.boxBlur(blurred, Math.max(4, Math.round(canvas.width / 120)));
+    // 亮部提取 + screen 混合
+    const ctx = canvas.getContext('2d');
+    const a = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const b = blurred.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    const da = a.data, db = b.data;
+    for (let i = 0; i < da.length; i += 4) {
+      const l = 0.299 * db[i] + 0.587 * db[i + 1] + 0.114 * db[i + 2];
+      const wgt = clamp((l - 110) / 145, 0, 1) * amt;   // 只让亮部发光
+      for (let c = 0; c < 3; c++) {
+        const screen = 255 - (255 - da[i + c]) * (255 - db[i + c]) / 255;
+        da[i + c] = clamp(da[i + c] + (screen - da[i + c]) * wgt, 0, 255);
+      }
+    }
+    ctx.putImageData(a, 0, 0);
+  };
+
+  /* ---- HDR 景观（局部对比增强：原图 + 高频细节增强） ---- */
+  P.hdr = function (canvas, amt) {
+    amt = clamp(amt, 0, 1);
+    if (!amt) return;
+    const blurred = U.cloneCanvas(canvas);
+    P.boxBlur(blurred, Math.max(3, Math.round(canvas.width / 200)));
+    const ctx = canvas.getContext('2d');
+    const a = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const b = blurred.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    const da = a.data, db = b.data;
+    const k = amt * 1.6;
+    for (let i = 0; i < da.length; i += 4) {
+      for (let c = 0; c < 3; c++) {
+        const detail = da[i + c] - db[i + c];
+        da[i + c] = clamp(da[i + c] + detail * k, 0, 255);
+      }
+    }
+    ctx.putImageData(a, 0, 0);
   };
 
   /* ---- 马赛克 ---- */

@@ -51,7 +51,7 @@
   C.defaultAdjust = () => ({
     brightness: 0, contrast: 0, saturate: 0, temp: 0, hue: 0,
     sharpen: 0, clarity: 0, noise: 0, vignette: 0, fade: 0,
-    highlight: 0, shadow: 0, tint: 0,
+    highlight: 0, shadow: 0, tint: 0, dehaze: 0, glow: 0, hdr: 0,
   });
   C.defaultHSL = () => ({ red: [0,0,0], orange: [0,0,0], yellow: [0,0,0], green: [0,0,0],
     cyan: [0,0,0], blue: [0,0,0], purple: [0,0,0], magenta: [0,0,0] });
@@ -266,6 +266,20 @@
     c.textAlign = 'center'; c.textBaseline = 'middle';
     if (o.type === 'text') {
       c.font = `${o.bold ? 'bold ' : ''}${o.italic ? 'italic ' : ''}${o.size}px ${o.font || '"PingFang SC", sans-serif'}`;
+      if (o.vertical) {
+        // 竖排：逐字向下
+        if (o.shadow) { c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = o.size / 8; c.shadowOffsetY = 2; }
+        c.fillStyle = o.color;
+        const chars = [...(o.text || '')];
+        const lh = o.size * 1.12;
+        const y0 = -(chars.length - 1) * lh / 2;
+        chars.forEach((ch, i) => {
+          if (o.stroke) { c.lineWidth = Math.max(2, o.size / 10); c.strokeStyle = o.strokeColor || '#fff'; c.strokeText(ch, 0, y0 + i * lh); }
+          c.fillText(ch, 0, y0 + i * lh);
+        });
+        c.restore();
+        return;
+      }
       if (o.shadow) { c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = o.size / 8; c.shadowOffsetY = 2; }
       if (o.stroke) { c.lineWidth = Math.max(2, o.size / 10); c.strokeStyle = o.strokeColor || '#fff'; c.strokeText(o.text, 0, 0); }
       if (o.gradient && o.gradient.length >= 2) {
@@ -297,6 +311,10 @@
 
   C.overlayHalfSize = function (o) {
     if (o.type === 'sticker') return { hw: o.size / 2 + 6, hh: o.size / 2 + 6 };
+    if (o.vertical) {
+      const n = [...(o.text || '')].length;
+      return { hw: o.size / 2 + 6, hh: n * o.size * 1.12 / 2 + 6 };
+    }
     if (o.type === 'image' && o.img) {
       const h = o.size * (o.img.height / o.img.width);
       return { hw: o.size / 2 + 6, hh: h / 2 + 6 };
@@ -308,7 +326,7 @@
   C.measureOverlay = function (o) {
     const m = U.makeCanvas(4, 4).getContext('2d');
     m.font = `${o.bold ? 'bold ' : ''}${o.size}px ${o.font || 'sans-serif'}`;
-    o.width = m.measureText(o.text || o.emoji || '').width;
+    o.width = o.vertical ? o.size : m.measureText(o.text || o.emoji || '').width;
   };
 
   // 把覆盖物烘焙进 base（裁剪/导出/部分工具前调用）

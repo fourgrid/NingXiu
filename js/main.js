@@ -5,13 +5,13 @@
   // 分类 → 子功能（参考美图秀秀的合并方式）
   const CATEGORIES = [
     { id: 'beautify', icon: '✨', name: '美化', tools: [
-      ['filter', '🎨', '滤镜'], ['adjust', '🎚️', '调节'], ['hsl', '🌈', 'HSL'], ['curves', '📈', '曲线'], ['blurbg', '🌫️', '背景虚化'],
+      ['filter', '🎨', '滤镜'], ['adjust', '🎚️', '调节'], ['hsl', '🌈', 'HSL'], ['curves', '📈', '曲线'], ['blurbg', '🌫️', '背景虚化'], ['doubleexp', '🎭', '双重曝光'], ['brushadj', '🖌', '局部画笔'],
     ]},
     { id: 'portrait', icon: '💆', name: '美容', tools: [
       ['beauty', '✨', '一键美颜'], ['liquify', '🌀', '瘦脸大眼'], ['makeup', '💄', '美妆'], ['erase', '🧹', '消除笔'],
     ]},
     { id: 'edit', icon: '✂️', name: '编辑', tools: [
-      ['crop', '✂️', '裁剪'], ['rotate', '🔃', '旋转'], ['resize', '📐', '尺寸'], ['correct', '🧭', '校正'], ['idphoto', '🪪', '证件照'],
+      ['crop', '✂️', '裁剪'], ['rotate', '🔃', '旋转'], ['resize', '📐', '尺寸'], ['correct', '🧭', '校正'], ['idphoto', '🪪', '证件照'], ['idlayout', '🖨', '排版'],
     ]},
     { id: 'deco', icon: '🖌️', name: '装饰', tools: [
       ['text', '🔤', '文字'], ['sticker', '🌟', '贴纸'], ['doodle', '🖌️', '涂鸦'], ['mosaic', '🔲', '马赛克'], ['frame', '🖼️', '边框'], ['watermark', '©️', '水印'],
