@@ -1,4 +1,4 @@
-/* ============ 柠檬秀秀 🍋 v2 —— 美图式底部导航风格 ============ */
+/* ============ 柠檬秀秀 🍋 v2 —— 底部导航风格 ============ */
 :root {
   --lemon: #FFD93D;
   --lemon-deep: #F5B800;
@@ -7,7 +7,7 @@
   --soft: #F7F7F9;
   --line: #EDEDF0;
   --muted: #9A9AA3;
-  --accent: #FF5A7E;      /* 美图式玫红点缀 */
+  --accent: #FF5A7E;      /* 玫红点缀 */
   --ai: #7C4DFF;
   --radius: 14px;
   --tabbar-h: 58px;
@@ -126,7 +126,7 @@ body {
 .swatch { width: 32px; height: 32px; border-radius: 50%; border: 2.5px solid var(--line); cursor: pointer; }
 .swatch.active { border-color: var(--ink); }
 
-/* ---- 底部 Tab Bar（美图式） ---- */
+/* ---- 底部 Tab Bar ---- */
 #tabbar {
   display: flex; background: var(--paper);
   border-top: 1px solid var(--line);
@@ -225,7 +225,7 @@ body {
 #zoomLabel { font-size: 12px !important; color: var(--muted); }
 #canvas { will-change: transform; }
 
-/* 中央相机大按钮（美图式） */
+/* 中央相机大按钮 */
 .tab-cam {
   flex: 0 0 64px; min-width: 64px; border: none; background: none; cursor: pointer;
   position: relative; align-self: stretch;

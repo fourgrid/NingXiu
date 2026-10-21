@@ -43,7 +43,7 @@
       U.$('#filterApply').addEventListener('click', C.commitAdjustments);
       this.renderThumbs();
     },
-    // 用当前图片生成每款滤镜的真实缩略图（美图式）
+    // 用当前图片生成每款滤镜的真实缩略图
     renderThumbs() {
       const b = S().base;
       if (!b) return;

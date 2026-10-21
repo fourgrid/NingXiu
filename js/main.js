@@ -2,7 +2,7 @@
 (function (M) {
   const U = NX.util, C = NX.core;
 
-  // 分类 → 子功能（参考美图秀秀的合并方式）
+  // 分类 → 子功能（按场景合并）
   const CATEGORIES = [
     { id: 'beautify', icon: '✨', name: '美化', tools: [
       ['filter', '🎨', '滤镜'], ['adjust', '🎚️', '调节'], ['hsl', '🌈', 'HSL'], ['curves', '📈', '曲线'], ['blurbg', '🌫️', '背景虚化'], ['doubleexp', '🎭', '双重曝光'], ['brushadj', '🖌', '局部画笔'],
@@ -28,7 +28,7 @@
   let curCat = 'beautify';
 
   M.buildNav = function () {
-    // 美图式布局：tab 中间插入凸起相机按钮
+    // 布局：tab 中间插入凸起相机按钮
     const half = Math.ceil(CATEGORIES.length / 2);
     const mkBtn = c => `<button class="tab-btn ${c.id === curCat ? 'active' : ''}" data-cat="${c.id}">${c.icon}<span>${c.name}</span></button>`;
     const camBtn = `<button class="tab-cam" id="tabCam" title="拍照"><span class="cam-disc">📷</span></button>`;
