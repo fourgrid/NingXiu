@@ -15,6 +15,7 @@
   Cam.stream = null;
   Cam.facing = 'user';   // 前置优先（自拍场景）
   Cam.style = 'none';
+  Cam.autoBeauty = true; // 拍完自动美化（磨皮+美白+锐化）
 
   Cam.open = async function () {
     const page = U.$('#cameraPage');
@@ -70,8 +71,15 @@
     if (s && s.css && C.filterSupported) ctx.filter = s.css;
     ctx.drawImage(v, 0, 0);
     Cam.close();
+    // 自动美化：拍完即美颜
+    if (Cam.autoBeauty) {
+      const P = NX.pixels;
+      P.smoothSkin(c, 0.5);
+      P.whiten(c, 0.35);
+      P.sharpen(c, 0.12);
+    }
     const img = new Image();
-    img.onload = () => { C.setImage(img); U.toast('已拍照，开始 P 图吧 🍋'); };
+    img.onload = () => { C.setImage(img); U.toast(Cam.autoBeauty ? '已拍照并自动美颜 ✨' : '已拍照，开始 P 图吧 🍋'); };
     img.src = c.toDataURL('image/jpeg', 0.95);
   };
 
@@ -88,6 +96,11 @@
 
   // 绑定
   document.getElementById('camShutter').addEventListener('click', Cam.shoot);
+  document.getElementById('camBeauty').addEventListener('click', () => {
+    Cam.autoBeauty = !Cam.autoBeauty;
+    document.getElementById('camBeautyTxt').textContent = Cam.autoBeauty ? '自动美化 开' : '自动美化 关';
+    U.toast(Cam.autoBeauty ? '✨ 拍完自动美颜' : '已关闭自动美化');
+  });
   document.getElementById('camClose').addEventListener('click', Cam.close);
   document.getElementById('camFlip').addEventListener('click', Cam.flip);
 })(window.NX.camera = {});

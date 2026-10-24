@@ -18,6 +18,7 @@
   <div class="cam-styles" id="camStyles"></div>
   <div class="cam-controls">
     <button class="cam-side-btn" id="camClose">✕</button>
+    <button class="cam-side-btn" id="camBeauty"><span id="camBeautyTxt">自动美化 开</span></button>
     <button id="camShutter">🍋</button>
     <button class="cam-side-btn" id="camFlip">🔄</button>
   </div>
@@ -271,6 +272,13 @@ window.addEventListener('load', async () => {
     await sleep(200);
     if (!S.base || S.base.width < 100) throw new Error('no capture');
     if (document.getElementById('cameraPage').hidden !== true) throw new Error('page not closed');
+  });
+
+  T('camAutoBeautyToggle', () => {
+    const before = NX.camera.autoBeauty;
+    document.getElementById('camBeauty').click();
+    if (NX.camera.autoBeauty === before) throw new Error('toggle failed');
+    document.getElementById('camBeauty').click();
   });
 
   /* ===== 第二批新功能 ===== */
